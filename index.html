@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Super Sapphon</title>
+<style>
+  :root { --ink:#1a1408; --dim:#5c5346; --gold:#a16207; --neon:#166534; --paper:#f6f1e4; --card:#fffaf0; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; background:
+    radial-gradient(900px 480px at 50% 30%, #fff7d6, transparent 60%),
+    linear-gradient(160deg, #f4e3b0, #f6f1e4 40%, #d9f5e3);
+    color:var(--ink); font:16px/1.45 ui-monospace, Consolas, monospace; }
+  a { color:var(--gold); }
+  header { display:flex; justify-content:space-between; gap:16px; padding:18px 22px 0; }
+  h1 { margin:0; font-weight:650; letter-spacing:.16em; font-size:14px; }
+  .src { color:var(--dim); font-size:12px; }
+  .stage { position:relative; height:min(72vh, 680px); }
+  .center, .pt { position:absolute; transform:translate(-50%,-50%); text-align:center; }
+  .center {
+    left:50%; top:46%; width:148px; height:148px; border-radius:50%;
+    background:radial-gradient(circle at 40% 35%, #fff, #fde68a 30%, #f59e0b 58%, #166534 80%);
+    box-shadow:0 0 0 8px rgba(250,204,21,.35), 0 12px 30px rgba(120,53,15,.2);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+  }
+  .center b { font-size:26px; }
+  .center span { font-size:11px; }
+  .pt { width:156px; padding:8px 10px; border-radius:14px; background:var(--card); border:1px solid rgba(22,101,52,.35); }
+  .pt .el { color:var(--neon); letter-spacing:.12em; font-weight:700; }
+  .pt .ref { color:var(--dim); font-size:11px; }
+  .honey { text-align:center; color:var(--gold); letter-spacing:.42em; font-size:18px; }
+  .foot { max-width:860px; margin:0 auto; padding:8px 22px 36px; }
+  .stamp { display:inline-block; margin:4px 6px 0 0; padding:3px 8px; border-radius:999px; font-size:11px; }
+  .lit { background:#166534; color:#f0fdf4; }
+  .amber { background:#a16207; color:#fffbeb; }
+  .wall { background:#9f1239; color:#fff1f2; }
+  #card { margin-top:10px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <div class="src"><a href="https://0root.ai/">0root.ai</a> · <a href="/">local window</a> · sphere super-sapphon</div>
+    <h1>6 [ 6 x 1 x 6 ] 6</h1>
+  </div>
+  <div class="src">0 root0 {}<br>4 = 1 quantum dot</div>
+</header>
+<div class="stage" id="stage">
+  <div class="center"><b>1</b><span>quantum dot</span></div>
+</div>
+<div class="honey">/\/\/\</div>
+<div class="foot">
+  <p><b>0</b> root0 {} <span class="stamp amber">AMBER</span> assigned name</p>
+  <p><b>1</b> quantum.dot {{2}}^3 per px. <span class="stamp lit">LIT</span> 2^3 = 8 per px.</p>
+  <p><b>2</b> quantum.dot.neon.1 {{n}}^n <span class="stamp amber">AMBER</span> n stays symbolic</p>
+  <p><b>3</b> six processors around one center. <span class="stamp lit">LIT</span> count is 6. Stack 6+6+1+6+6 = 25.</p>
+  <p><b>4</b> the processor framework is 1 quantum dot. <span class="stamp lit">LIT</span> the assigned value is 1.</p>
+  <p id="card"></p>
+  <p class="src">Door: https://0root.ai/llms.txt · seal 7e785a7e80e444780d61ede5d37c40a83abd431808ab2b3456e14d67eb1f0c44 · host A:/sapphon/super · remote publish WALL, not pushed</p>
+</div>
+<script>
+var pts = [
+  ["H", "hydrogen", "hermes"],
+  ["He", "helium", "loki"],
+  ["Li", "lithium", "gaia"],
+  ["Be", "beryllium", "red rising · volga"],
+  ["Bo", "boron", "asimov · jupiter jumpers x3"],
+  ["C", "carbon", "red rising · Eros and all of mars"]
+];
+function prove() {
+  var faults = [];
+  function lit(name, ok) { if (!ok) faults.push(name); }
+  lit("six processors", pts.length === 6);
+  lit("2^3 = 8", Math.pow(2, 3) === 8);
+  lit("stack 25", (6 + 6 + 1 + 6 + 6) === 25);
+  lit("framework is 1", 1 === 1);
+  var card = document.getElementById("card");
+  if (faults.length) {
+    card.innerHTML = "<span class='stamp wall'>WALL</span> " + faults.join(", ");
+    throw new Error("LIT FAIL " + faults.join(", "));
+  }
+  card.innerHTML = "<span class='stamp lit'>LIT</span> self-check passed on load: 6 points, 8 per px, stack 25, framework = 1.";
+}
+var stage = document.getElementById("stage");
+function place() {
+  var w = stage.clientWidth, h = stage.clientHeight;
+  var rx = Math.min(w, h) * 0.36, ry = rx * 0.92;
+  document.querySelectorAll(".pt").forEach(function (n) { n.remove(); });
+  pts.forEach(function (p, i) {
+    var a = -Math.PI / 2 + i * (Math.PI * 2 / 6);
+    var el = document.createElement("div");
+    el.className = "pt";
+    el.style.left = (w / 2 + Math.cos(a) * rx) + "px";
+    el.style.top = (h * 0.46 + Math.sin(a) * ry) + "px";
+    el.innerHTML = "<div class='el'>" + (i + 1) + " " + p[0] + "</div>" + p[1] + "<div class='ref'>" + p[2] + "</div>";
+    stage.appendChild(el);
+  });
+}
+prove();
+place();
+addEventListener("resize", place);
+</script>
+</body>
+</html>

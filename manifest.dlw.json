@@ -1,0 +1,10 @@
+{
+  "name": "Super Sapphon",
+  "slug": "super-sapphon",
+  "blurb": "One quantum dot. Six processors around one center. The framework is the dot.",
+  "seal_sha256": "7e785a7e80e444780d61ede5d37c40a83abd431808ab2b3456e14d67eb1f0c44",
+  "seal_input": "name|slug|blurb",
+  "host": "A:/sapphon/super",
+  "door": "https://0root.ai/",
+  "written": "2026-09-22"
+}

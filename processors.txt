@@ -1,0 +1,11 @@
+1 H  hydrogen  ref hermes
+2 He helium    ref loki
+3 Li lithium   ref gaia
+4 Be beryllium ref red.rising volga
+5 Bo boron     ref asimov.jupiter.jumpers x3
+6 C  carbon    referent red.rising Eros and all of mars
+
+stacked hex /\/\/\
+6 points around 1 center
+address 6[6x1x6]6
+the processor framework is 1 quantum dot

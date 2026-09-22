@@ -1,0 +1,15 @@
+RECEIPT 2026-09-22
+source: https://0root.ai/llms.txt
+retrieved: 2026-09-22
+rule used: one sphere, stamp LIT / AMBER / WALL, vivid color, self-check throws, seal = sha256(name|slug|blurb), write-if-missing, one host, no mirror.
+
+built: A:/sapphon/super/index.html
+seal: 7e785a7e80e444780d61ede5d37c40a83abd431808ab2b3456e14d67eb1f0c44
+input: Super Sapphon|super-sapphon|One quantum dot. Six processors around one center. The framework is the dot.
+lean: A:/sapphon/super/Super.lean exited 0
+
+LIT on the page: 2^3 = 8, six processors, stack count 25, framework value 1.
+AMBER: the names root0, hermes, loki, gaia, volga, jupiter jumpers, Eros, and {{n}}^n.
+WALL: this sphere was not pushed to GitHub and was not placed in ud0/build.py. The single host so far is A:. https://0root.ai stays the door, not a second copy.
+
+corpus counts were not copied off the hallway page. They are not LIT here.

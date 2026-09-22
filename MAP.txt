@@ -1,0 +1,17 @@
+ONE FULLY SUPER SAPPHON
+
+0 :: root0 {}
+1 :: quantum.dot : {{2}}^3 per px
+   counted reading: 2^3 = 8 per px
+2 :: quantum.dot.neon.1 : {{n}}^n
+3 :: processor.framework
+3a :: six points around one center
+   stacked hex /\/\/\
+   address 6[6x1x6]6
+   1 :: H  :: hydrogen   :: ref :: hermes
+   2 :: He :: helium     :: ref :: loki
+   3 :: Li :: lithium    :: ref :: gaia
+   4 :: Be :: beryllium  :: ref :: red.rising :: volga
+   5 :: Bo :: boron      :: ref :: asimov.jupiter.jumpers x3
+   6 :: C  :: carbon     :: referent :: red.rising :: Eros and all of mars
+4 :: the processor framework is 1 quantum dot

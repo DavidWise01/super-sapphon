@@ -1,0 +1,2 @@
+Super Sapphon|super-sapphon|One quantum dot. Six processors around one center. The framework is the dot.
+7e785a7e80e444780d61ede5d37c40a83abd431808ab2b3456e14d67eb1f0c44
