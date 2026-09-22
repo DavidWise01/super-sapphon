@@ -10,6 +10,11 @@ lean: A:/sapphon/super/Super.lean exited 0
 
 LIT on the page: 2^3 = 8, six processors, stack count 25, framework value 1.
 AMBER: the names root0, hermes, loki, gaia, volga, jupiter jumpers, Eros, and {{n}}^n.
-WALL: this sphere was not pushed to GitHub and was not placed in ud0/build.py. The single host so far is A:. https://0root.ai stays the door, not a second copy.
+GIT: https://github.com/DavidWise01/super-sapphon
+PAGES: https://davidwise01.github.io/super-sapphon/
+ROOT: https://github.com/DavidWise01/nom is 0.0.0. The box origin ({0}) links here.
+Drift between local ud0 and origin/main was left alone. It is generative.
+Railway login is expired, so the railway hop was not fired from here.
+The door remains https://0root.ai/
 
 corpus counts were not copied off the hallway page. They are not LIT here.
