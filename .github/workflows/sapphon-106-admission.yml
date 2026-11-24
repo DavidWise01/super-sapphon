@@ -1,0 +1,41 @@
+name: SAPPHON-106 Real Source Admission Contract
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_106_admission.cjs'
+      - 'tools/test_sapphon_106_admission.cjs'
+      - 'docs/sapphon/phase-viii/106/**'
+      - '.github/workflows/sapphon-106-admission.yml'
+permissions:
+  contents: read
+jobs:
+  admission:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify physical-source admission dossier and fail-closed uncertainty
+        run: node tools/test_sapphon_106_admission.cjs
+      - name: Verify inherited signed intake qualification
+        run: node tools/test_sapphon_105_intake.cjs
+      - name: Check viewer and both prior immutable freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-viii/106/index.html','utf8');
+          const match=h.match(/<script>([\s\S]*?)<\/script>/);
+          assert(match,'missing script');new vm.Script(match[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase VIII · 2/8'])
+            assert(h.includes(s),'missing '+s);
+          console.log('PASS Phase VIII neon viewer and explicit authority HOLD');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          for p in ['docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json']:
+              d=json.loads(pathlib.Path(p).read_text())
+              for name,entry in d['files'].items():
+                  assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==entry['sha256'],name
+              print('PASS',p,len(d['files']),'frozen hashes')
+          PY
