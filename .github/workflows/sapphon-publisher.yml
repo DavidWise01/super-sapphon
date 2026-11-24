@@ -1,0 +1,57 @@
+name: SAPPHON-091 Read-Only Clock Publisher
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/sapphon/source/clock.json'
+      - 'tools/sapphon_publish.py'
+      - '.github/workflows/sapphon-publisher.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sapphon-clock-publisher
+  cancel-in-progress: false
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Configure Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate recorded clock input and injection rejection
+        run: python tools/sapphon_publish.py --test
+      - name: Produce read-only JSON output
+        run: python tools/sapphon_publish.py
+      - name: Verify publication matches source
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from tools.sapphon_publish import validate
+          source = json.loads(Path("docs/sapphon/source/clock.json").read_text())
+          result = json.loads(Path("docs/sapphon/live/clock.json").read_text())
+          assert validate(source) == validate(result)
+          assert result["mode"] == "static-archive"
+          assert all(all(a[k] is b[k] for k in ("second", "minute", "day")) for a,b in zip(source["records"],result["records"]))
+          print("PASS: all authorization flags preserved; zero generated time readings")
+          PY
+      - name: Commit published JSON only if changed
+        run: |
+          git add docs/sapphon/live/clock.json
+          if git diff --cached --quiet; then
+            echo "No change: archived clock export already current"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-091: publish validated read-only clock export'
+          git push origin HEAD:main
