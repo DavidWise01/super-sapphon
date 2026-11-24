@@ -1,4 +1,4 @@
-name: SAPPHON-091 Read-Only Clock Publisher
+name: SAPPHON-092 Read-Only Stream Publisher
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'docs/sapphon/source/clock.json'
+      - 'docs/sapphon/source/incoming.json'
       - 'tools/sapphon_publish.py'
       - '.github/workflows/sapphon-publisher.yml'
 
@@ -38,12 +39,15 @@ jobs:
           python - <<'PY'
           import json
           from pathlib import Path
-          from tools.sapphon_publish import validate
+          from tools.sapphon_publish import validate_archive, reconcile
           source = json.loads(Path("docs/sapphon/source/clock.json").read_text())
           result = json.loads(Path("docs/sapphon/live/clock.json").read_text())
-          assert validate(source) == validate(result)
-          assert result["mode"] == "static-archive"
-          assert all(all(a[k] is b[k] for k in ("second", "minute", "day")) for a,b in zip(source["records"],result["records"]))
+          incoming = Path("docs/sapphon/source/incoming.json")
+          batch = json.loads(incoming.read_text()) if incoming.exists() else None
+          expected, expected_mode = reconcile(source,batch)
+          assert result["records"] == expected
+          assert result["mode"] == expected_mode
+          assert all(all(a[k] is b[k] for k in ("second", "minute", "day")) for a,b in zip(expected,result["records"]))
           print("PASS: all authorization flags preserved; zero generated time readings")
           PY
       - name: Commit published JSON only if changed
@@ -53,5 +57,5 @@ jobs:
             echo "No change: archived clock export already current"
             exit 0
           fi
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-091: publish validated read-only clock export'
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-092: publish validated append-only clock export'
           git push origin HEAD:main
