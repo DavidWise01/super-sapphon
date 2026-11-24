@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-099 · Enrollment & Revocation</title>
+<style>:root{color-scheme:dark}*{box-sizing:border-box}body{background:radial-gradient(circle at 15% 10%,#302146,transparent 40%),radial-gradient(circle at 80% 32%,#003b3e,transparent 44%),#090e1b;color:#e6f6ff;margin:0;font:14px/1.5 Consolas,monospace}header,main,footer{max-width:1140px;margin:auto;padding:18px}header{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}h1{margin:0;font-size:22px}h2{font-size:14px;color:#76f3d2}.tag{padding:8px 13px;border:1px solid #f6a368;border-radius:30px;color:#ffbf8a}.sub{color:#a7bcd0}main{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}.panel{background:#0d192b;border:1px solid #35536e;border-radius:15px;padding:17px;min-width:0}canvas{display:block;width:100%;aspect-ratio:1.14}.reg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.reg>div,.card{border:1px solid #2c5263;border-radius:8px;padding:11px;background:#142333}.reg small{display:block;color:#98b0c2}.reg strong{overflow-wrap:anywhere;color:#a8f6e8;font-size:12px}.wide{grid-column:1/-1}.track{display:flex;gap:9px;flex-wrap:wrap;margin:13px 0}.card{flex:1;min-width:150px;cursor:pointer}.card strong{display:block;font-size:13px}.card small{color:#a9bccc}.card.active{border-color:#55d7a4;box-shadow:0 0 17px #2ab89644}.card.revoked{border-color:#ee805c}.card.recovered{border-color:#a18cfc}button,a{display:inline-block;color:#b1ffed;background:#16404a;border:1px solid #3faaa8;border-radius:8px;padding:9px;text-decoration:none;cursor:pointer;margin:3px 4px 3px 0}button:hover,a:hover{background:#285764}#notice{color:#f3ba8a;min-height:40px}footer{font-size:12px;color:#a3b2c2}@media(max-width:760px){main{grid-template-columns:1fr}.wide{grid-column:auto}}</style>
+</head><body><header><div><h1>SAPPHON <span style="color:#4feab6">099</span> · SOURCE LIFECYCLE</h1><div class="sub">Phase VII · 3/8 · read-only neon evidence laboratory · .dlw</div></div><span class="tag">UNAUTHENTICATED ARCHIVE ≠ CLOCK AUTHORITY</span></header>
+<main><section class="panel"><h2>R / G / B · THREE PHYSICAL PUMPS · 8 PHASES</h2><canvas id="clock" width="650" height="570" aria-label="Concentric neon clock rings"></canvas><p id="record-label" class="sub">Loading archived observations…</p></section>
+<section class="panel"><h2>FOUR FROZEN CLOCK REGISTERS</h2><div class="reg">
+<div><small>year / month / day</small><strong id="ymd">—</strong></div>
+<div><small>hour / minute / second</small><strong id="hms">—</strong></div>
+<div><small>degree / arcminute / arcsecond</small><strong id="degrees">—</strong></div>
+<div><small>arc / arc-arc / arc-arc-arc</small><strong id="arcs">—</strong></div>
+</div><h2 style="margin-top:20px">EVIDENCE STATUS</h2><p class="sub">Three lifecycle stages below are test demonstrations. The archived SAPPHON clock is synthetic and unsigned; no physical measurements or true UTC are established.</p>
+<div class="reg"><div><small>Source ancestry</small><strong>1 declared synthetic root</strong></div><div><small>Hardware clock authority</small><strong style="color:#ffbc8b">NOT GRANTED</strong></div><div><small>Revocation events</small><strong>APPEND ONLY</strong></div><div><small>Phase VI freeze</small><strong>UNMODIFIED</strong></div></div>
+<p><a href="../098/">098 · Key rotation</a><a href="../../">Frozen clock</a></p>
+</section>
+<section class="panel wide"><h2>SOURCE ENROLLMENT → KEY COMPROMISE → CONTROLLED RE-ENROLLMENT</h2>
+<div class="track">
+<div class="card active" data-state="0"><strong>01 · ENROLL</strong><small>Key A · generation 0 · active</small></div>
+<div class="card revoked" data-state="1"><strong>02 · REVOKE</strong><small>Key A · compromised · unusable</small></div>
+<div class="card recovered" data-state="2"><strong>03 · REENROLL</strong><small>Key B · generation 1 · same root</small></div>
+</div>
+<button id="advance">NEXT LEDGER EVENT</button><button id="reset">RESET VIEW</button><button id="fault">SIMULATE FALSE ANCESTRY</button><p id="notice">Viewing ENROLL. Select a lifecycle stage to inspect its meaning.</p>
+<div class="track"><div class="card"><strong>Signed governance event</strong><small>Key enrollment or revocation</small></div><div class="card"><strong>Previous event digest</strong><small>Every ledger entry linked</small></div><div class="card"><strong>Source root unchanged</strong><small>Re-enrollment does not multiply witnesses</small></div><div class="card"><strong>Clock events untouched</strong><small>No new authorization</small></div></div>
+<p class="sub">Private signing keys are generated temporarily in CI tests and are never committed. The browser is an explanatory visualization, not an independent signer, revoker, or source-enrollment authority.</p>
+<p><a href="https://github.com/DavidWise01/super-sapphon/blob/main/tools/sapphon_099_enrollment.cjs">Full source-enrollment engine</a> · <a href="https://github.com/DavidWise01/super-sapphon/blob/main/tools/test_sapphon_099_enrollment.cjs">Negative tests</a></p>
+</section></main>
+<footer>Invariant: compromise revokes permission to sign future records; the frozen past remains visible. Source ancestry is preserved. One input · Three pumps · Four registers · One output · .dlw</footer>
+<script>"use strict";
+const c=document.querySelector("#clock"),g=c.getContext("2d");let phase=0,state=0;
+function paint(k){const cx=317,cy=270;g.fillStyle="#0a1322";g.fillRect(0,0,650,570);
+for(const [j,rad,col] of [[0,215,"#fc9157"],[1,156,"#48e5ae"],[2,101,"#7d9cff"]]){
+ g.shadowColor=col;g.shadowBlur=24;g.strokeStyle=col;g.lineWidth=2;g.beginPath();g.arc(cx,cy,rad,0,Math.PI*2);g.stroke();g.shadowBlur=0;
+ for(let n=0;n<8;n++){let a=(n+k*(j===1?-1:1))*Math.PI/4;g.fillStyle=col;g.beginPath();g.arc(cx+rad*Math.cos(a),cy+rad*Math.sin(a),n===0?6:3.5,0,Math.PI*2);g.fill()}}
+g.fillStyle="#ebc8fa";g.textAlign="center";g.font="bold 25px Consolas";g.fillText("{{i}}",cx,cy+8);g.fillStyle="#d1deed";g.font="15px Consolas";g.fillText("R HOT   +1     G NEITHER 0     B COLD -1",cx,534)}paint(0);
+fetch("../../live/clock.json",{cache:"no-store"}).then(r=>{if(!r.ok)throw Error("HTTP "+r.status);return r.json()}).then(d=>{
+if(d.mode!=="static-archive"||!Array.isArray(d.records)||d.records.length!==8)throw Error("Unexpected archive format");
+const r=d.records.at(-1);phase=r.sector;paint(phase);for(const [id,key] of [["ymd","ymd"],["hms","hms"],["degrees","degree_arcminute_arcsecond"],["arcs","arc_arc_arc"]])document.getElementById(id).textContent=r.address[key].join(" / ");
+document.getElementById("record-label").textContent="Synthetic archive · phase "+r.seq+" · source UNSIGNED · no time authorization";
+}).catch(e=>{document.getElementById("record-label").textContent="NO VALID ARCHIVE: "+e.message});
+const desc=["ENROLL · Governance approves test Key A as generation 0 for one synthetic source root.","REVOKE · Key A marked compromised. No old records are erased; no more signatures from Key A.","REENROLL · Key B explicitly enrolled at generation 1, after revocation. Original ancestry remains one root."];
+function choose(i){state=i;document.querySelectorAll("[data-state]").forEach((x,n)=>{x.style.boxShadow=n===i?"0 0 19px #72e2c066":"none"});document.getElementById("notice").textContent=desc[i]}
+document.querySelectorAll("[data-state]").forEach((el,i)=>el.onclick=()=>choose(i));
+document.getElementById("advance").onclick=()=>choose((state+1)%3);
+document.getElementById("reset").onclick=()=>choose(0);
+document.getElementById("fault").onclick=()=>{document.getElementById("notice").textContent="REJECTED DEMONSTRATION: false ancestry cannot be assigned to a replacement key. Published clock archive and ledger are untouched."};choose(0);
+</script></body></html>
