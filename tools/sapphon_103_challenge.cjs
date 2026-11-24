@@ -9,7 +9,7 @@ const ID=/^[a-z0-9-]{4,64}$/;
 const HEX=/^[a-f0-9]{64}$/;
 function fail(code){throw Error(code)}
 function keyHash(key){return crypto.createHash("sha256")
-  .update(crypto.createPublicKey(key.type==="public"?key:crypto.createPublicKey(key))
+  .update((key.type==="public"?key:crypto.createPublicKey(key))
     .export({type:"spki",format:"der"})).digest("hex")}
 function normalizeEnrollment(entry){
  const keys=["schema","custodian_id","custody_root","key_id","public_key_fingerprint","provisioning_channel","review_state"];
