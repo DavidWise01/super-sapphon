@@ -13,6 +13,7 @@ FILES = (
     "docs/sapphon/monitor.js",
     "docs/sapphon/source/clock.json",
     "docs/sapphon/live/clock.json",
+    "docs/sapphon/SAPPHON-096-REPORT.md",
     "tools/sapphon_publish.py",
     "tools/sapphon_verify_checkpoint.py",
     "tools/test_sapphon_monitor.cjs",
