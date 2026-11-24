@@ -42,7 +42,7 @@ function parseEntries(entries,govPublicKey){
   if(!crypto.verify(null,bytes,govPublicKey,Buffer.from(e.signature,"base64")))err("GOVERNANCE_SIGNATURE");
   const current=sources.get(body.source_id);
   if(body.type==="ENROLL"){
-   if(current||body.index!==0||body.generation!==0||usedKeys.has(body.key_id))err("ENROLLMENT_CONFLICT");
+   if(current||body.generation!==0||usedKeys.has(body.key_id))err("ENROLLMENT_CONFLICT");
    const pub=crypto.createPublicKey(body.public_key_pem);
    usedKeys.add(body.key_id);
    sources.set(body.source_id,{source_id:body.source_id,root:body.ancestry_root,role:body.role,
