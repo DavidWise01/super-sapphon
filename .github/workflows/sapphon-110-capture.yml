@@ -1,0 +1,43 @@
+name: SAPPHON-110 Capture Agent & Session Anchors
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_110_capture.cjs'
+      - 'tools/test_sapphon_110_capture.cjs'
+      - 'docs/sapphon/phase-viii/110/**'
+      - '.github/workflows/sapphon-110-capture.yml'
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify capture-agent enrollment, nonce issuance and session binding
+        run: node tools/test_sapphon_110_capture.cjs
+      - name: Verify inherited transport and acquisition protections
+        run: |
+          node tools/test_sapphon_109_transcript.cjs
+          node tools/test_sapphon_108_acquisition.cjs
+      - name: Verify viewer syntax and immutable Phase VI/VII freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-viii/110/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase VIII · 6/8'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS SAPPHON-110 neon viewer and HOLD');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json'):
+              m=json.loads(pathlib.Path(p).read_text())
+              for name,item in m['files'].items():
+                  assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==item['sha256'],name
+              print('PASS',p,len(m['files']),'immutable hashes')
+          PY
