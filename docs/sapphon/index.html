@@ -206,7 +206,7 @@ $("export-checkpoint").onclick=async()=>{
  try{
   await checkpointPromise;
   const checkpoint=await SapphonMonitor.makeCheckpoint(accepted);
-  const text=JSON.stringify(checkpoint,null,2)+"\\n";
+  const text=JSON.stringify(checkpoint,null,2)+"\n";
   const blob=new Blob([text],{type:"application/json"});
   const href=URL.createObjectURL(blob);
   const link=document.createElement("a");
