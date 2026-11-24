@@ -1,0 +1,44 @@
+name: SAPPHON-115 Crash Window & Local Effect Reconciliation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_115_reconcile.cjs'
+      - 'tools/test_sapphon_115_reconcile.cjs'
+      - 'docs/sapphon/phase-ix/115/**'
+      - '.github/workflows/sapphon-115-reconcile.yml'
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate durable prepare, commit, crash recovery and acknowledgement replay
+        run: node tools/test_sapphon_115_reconcile.cjs
+      - name: Preserve downstream epoch fencing and single-writer tests
+        run: |
+          node tools/test_sapphon_114_effect.cjs
+          node tools/test_sapphon_113_fence.cjs
+      - name: Verify neon viewer and all three prior immutable freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-ix/115/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase IX · 3/8'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS SAPPHON-115 neon viewer and HOLD');
+          NODE
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json','docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json'):
+              m=json.loads(pathlib.Path(p).read_text())
+              for f,record in m['files'].items():
+                  blob=pathlib.Path(f).read_bytes()
+                  assert hashlib.sha256(blob).hexdigest()==record['sha256'] and len(blob)==record['bytes'],f
+              print('PASS',p,len(m['files']),'frozen hashes')
+          PY
