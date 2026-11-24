@@ -1,0 +1,45 @@
+name: SAPPHON-105 Phase VIII External Evidence Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_105_intake.cjs'
+      - 'tools/test_sapphon_105_intake.cjs'
+      - 'docs/sapphon/phase-viii/105/**'
+      - '.github/workflows/sapphon-105-intake.yml'
+permissions:
+  contents: read
+jobs:
+  qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed external evidence intake and no-authority boundary
+        run: node tools/test_sapphon_105_intake.cjs
+      - name: Verify inherited root and custody signature tests
+        run: |
+          node tools/test_sapphon_103_challenge.cjs
+          node tools/test_sapphon_102_receipts.cjs
+          node tools/test_sapphon_101_anchor.cjs
+      - name: Validate neon viewer and both sealed source freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-viii/105/index.html','utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);assert(m,'Missing script');
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1',
+                           'PHYSICAL CLOCK + CUSTODY HOLD','Phase VIII · 1/8'])
+            assert(html.includes(s),'Missing '+s);
+          console.log('PASS Phase VIII neon viewer syntax and HOLD declaration');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          for p in ['docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json']:
+              doc=json.loads(pathlib.Path(p).read_text())
+              for filename,entry in doc['files'].items():
+                  assert hashlib.sha256(pathlib.Path(filename).read_bytes()).hexdigest()==entry['sha256'],filename
+              print('PASS',p,len(doc['files']),'frozen hashes')
+          PY
