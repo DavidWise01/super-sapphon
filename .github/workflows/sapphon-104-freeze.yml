@@ -1,0 +1,53 @@
+name: SAPPHON-104 Phase VII Browser Acceptance & Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_104_replay.cjs'
+      - 'tools/test_sapphon_104_replay.cjs'
+      - 'tools/test_sapphon_104_browser.cjs'
+      - 'tools/sapphon_104_freeze.py'
+      - 'docs/sapphon/phase-vii/104/**'
+      - '.github/workflows/sapphon-104-freeze.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-104-freeze
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Durable replay persistence and expiry regression
+        run: node tools/test_sapphon_104_replay.cjs
+      - name: Inherited independent custody challenge and provenance regression
+        run: |
+          node tools/test_sapphon_103_challenge.cjs
+          node tools/test_sapphon_102_receipts.cjs
+          node tools/test_sapphon_101_anchor.cjs
+          node tools/test_sapphon_099_enrollment.cjs
+      - name: Prepare supported Chromium runner
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Real browser canvas, clock and fault-control acceptance
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/sapphon104-http.log 2>&1 &
+          sleep 2
+          node tools/test_sapphon_104_browser.cjs
+      - name: Generate and verify Phase VII and inherited Phase VI evidence
+        run: python3 tools/sapphon_104_freeze.py
+      - name: Commit deterministic Phase VII source freeze only after tests succeed
+        run: |
+          git add docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json
+          if git diff --cached --quiet; then
+            echo 'No changes: verified Phase VII source already frozen'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-104: publish tested Phase VII software freeze'
+          git push origin HEAD:main
