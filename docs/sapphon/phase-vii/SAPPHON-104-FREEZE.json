@@ -1,0 +1,193 @@
+{
+  "external_custody": "HOLD",
+  "files": {
+    ".github/workflows/sapphon-097-provenance.yml": {
+      "bytes": 1822,
+      "sha256": "860199d53bf5bf032d41240d1cde1741e4e1c40ece0513abcc43d6bddfac6dd3"
+    },
+    ".github/workflows/sapphon-098-chain.yml": {
+      "bytes": 1051,
+      "sha256": "9b349c39b7291366cf3fdad183866ce1958039d744bf5df4764dbcc550ea94f1"
+    },
+    ".github/workflows/sapphon-099-enrollment.yml": {
+      "bytes": 2036,
+      "sha256": "f3c7b9bafe9f45b5961a6360b34b3feb780bd299bf59a78d5ba615bc8e248f47"
+    },
+    ".github/workflows/sapphon-100-audit.yml": {
+      "bytes": 2611,
+      "sha256": "5a190c761dcb40c05a18e9aa4f1d0a57292673d151e280c8f92449d3eb38b32d"
+    },
+    ".github/workflows/sapphon-101-anchor.yml": {
+      "bytes": 2623,
+      "sha256": "05ee50aacd71416ceb148b8c83fc2701885e4ed74052c089b689478130b22b30"
+    },
+    ".github/workflows/sapphon-102-receipts.yml": {
+      "bytes": 1795,
+      "sha256": "45dd9d4b23a37124ceb76e8d7a0d76daa0ae0a2eeca453a8cb4920608fd5548a"
+    },
+    ".github/workflows/sapphon-103-challenge.yml": {
+      "bytes": 1850,
+      "sha256": "4e6559d616bed5eb66538e953c071087ceaaa43185478bbd5136045e87204b0d"
+    },
+    ".github/workflows/sapphon-104-freeze.yml": {
+      "bytes": 2125,
+      "sha256": "21e2d6e597625885b61f33f6f40065d7ad749b5d541e91555c0ea67ff4f2bc73"
+    },
+    "docs/sapphon/phase-vii/098/SAPPHON-098-REPORT.md": {
+      "bytes": 2281,
+      "sha256": "7bc81f7ba19154796add26450a7926aad63dcf2e861a12da9f7ba931939d3a4c"
+    },
+    "docs/sapphon/phase-vii/098/index.html": {
+      "bytes": 5653,
+      "sha256": "850e13430bf0a5f83b0bb6d069b9b784fb37a06ea09fc791e5fd70a5df7ae179"
+    },
+    "docs/sapphon/phase-vii/099/SAPPHON-099-REPORT.md": {
+      "bytes": 2364,
+      "sha256": "d863c9936fb3e175a4dbeeb43800ec86dcd5730deefafba1089ccb65ec0f166e"
+    },
+    "docs/sapphon/phase-vii/099/index.html": {
+      "bytes": 7893,
+      "sha256": "2133c2497a523d90397ee2e43cb1f5f631540d74a04745b27cb94947382d37db"
+    },
+    "docs/sapphon/phase-vii/100/SAPPHON-100-REPORT.md": {
+      "bytes": 2925,
+      "sha256": "fec1c8c8954d98bbc905e81d51a3d46b9d648a7e3ee56a0ef8d6c1679a8dcd5d"
+    },
+    "docs/sapphon/phase-vii/100/index.html": {
+      "bytes": 6651,
+      "sha256": "e612ead5cafc519171975cc0d6b33b17371aec1ff76f294e202d0408b4a39d37"
+    },
+    "docs/sapphon/phase-vii/101/SAPPHON-101-REPORT.md": {
+      "bytes": 2642,
+      "sha256": "fe98565b04befc2a276179e52807e79726b7cf9f7951e59b7077bacce3c73a93"
+    },
+    "docs/sapphon/phase-vii/101/index.html": {
+      "bytes": 6767,
+      "sha256": "6f6d22609622cbd8f103a0517a22e59118ffc4b6e8dbe0418a5a52a34ce5c9c8"
+    },
+    "docs/sapphon/phase-vii/102/SAPPHON-102-REPORT.md": {
+      "bytes": 2077,
+      "sha256": "8ed838b1bcc791e3853e2632177622e6ac45bc901cf8010025ff657ec39f87e3"
+    },
+    "docs/sapphon/phase-vii/102/index.html": {
+      "bytes": 6575,
+      "sha256": "23830879bf456fc2ced546a701888df8f2a6d38378aa4c21ca85ce6709dd31dd"
+    },
+    "docs/sapphon/phase-vii/103/SAPPHON-103-REPORT.md": {
+      "bytes": 2722,
+      "sha256": "bf5b4b02054d7becd36f2a1e554bfa98727f161a8f8973ef35aacc9a9750b84f"
+    },
+    "docs/sapphon/phase-vii/103/index.html": {
+      "bytes": 6681,
+      "sha256": "90945481e0ef3821270160eba479f133f5c24fda8578d3b850966c3f8af5aee7"
+    },
+    "docs/sapphon/phase-vii/104/SAPPHON-104-REPORT.md": {
+      "bytes": 3167,
+      "sha256": "b5d345d004f09ba057c106c3b5bea9b393f106ca45ba10c9984d9563cbaf3871"
+    },
+    "docs/sapphon/phase-vii/104/index.html": {
+      "bytes": 6598,
+      "sha256": "5896f6bb204c4d2332b97c0016c19b7778d23f6e7420f2376b7bb063aa5e8cf7"
+    },
+    "docs/sapphon/phase-vii/SAPPHON-097-REPORT.md": {
+      "bytes": 1727,
+      "sha256": "1cf2de87e695048ac4ba23348f63fceee252cd98362540baa10c3964a6eb90c1"
+    },
+    "docs/sapphon/phase-vii/index.html": {
+      "bytes": 7172,
+      "sha256": "2872db1a7d3bf73c116659a11ec63a434418f071b44e2ec587ccf293fb6362e0"
+    },
+    "tools/sapphon_097_auth.cjs": {
+      "bytes": 3063,
+      "sha256": "bc9f7347a975fb4bacd1fb7b09ee25b0443f7a4040ca4e4223e13f03857d99f1"
+    },
+    "tools/sapphon_098_chain.cjs": {
+      "bytes": 4194,
+      "sha256": "af0544d1488b4a2ea4b2a662691544778f2cde29bc4b3ccfb9885a0122ee117e"
+    },
+    "tools/sapphon_099_enrollment.cjs": {
+      "bytes": 4713,
+      "sha256": "d2ed645b879304a72ec66674e1c95b4ac0c6f7826906525b71a7a700c7601835"
+    },
+    "tools/sapphon_100_checkpoint.cjs": {
+      "bytes": 3073,
+      "sha256": "59c849f7f026ed301addca6531259967f1160deba131a9aa240ff482ef954394"
+    },
+    "tools/sapphon_100_export.cjs": {
+      "bytes": 3066,
+      "sha256": "b47940c9ade6ce4bb368d6383947712c3cc70734ff1c0e24892ac96975fba926"
+    },
+    "tools/sapphon_100_verify.py": {
+      "bytes": 6063,
+      "sha256": "c22a9b2ec1060c3f716b07320d14b950d83f6c58c3163c04d2bbd56a27cc8e9d"
+    },
+    "tools/sapphon_101_anchor.cjs": {
+      "bytes": 3006,
+      "sha256": "f150fb06f805a5dba7d4ef4ddac6f64d8a06ac6ee77c6c350b391bf0451e796a"
+    },
+    "tools/sapphon_101_export.cjs": {
+      "bytes": 1859,
+      "sha256": "342c19ea9dbbef93e35f6210bea427483815a03c37a087ddc022192c5adee019"
+    },
+    "tools/sapphon_102_receipts.cjs": {
+      "bytes": 4107,
+      "sha256": "9f20a0ab13e4881adef6e313edd6e30669165312721a5efb014ce1284eba5ccd"
+    },
+    "tools/sapphon_103_challenge.cjs": {
+      "bytes": 4339,
+      "sha256": "09a5f8a13ab494f2ac3d3c4e7aafac8a4ae4666c655861875606bcf3c10c4803"
+    },
+    "tools/sapphon_104_freeze.py": {
+      "bytes": 3333,
+      "sha256": "4472373ab2291cb495947d1964c6d367aa95b61e35609d6f04390df0905890d6"
+    },
+    "tools/sapphon_104_replay.cjs": {
+      "bytes": 4549,
+      "sha256": "221add57a8a75d1363a87a20b922eeb9a043f05506c833b437657a49e94114d4"
+    },
+    "tools/test_sapphon_097_auth.cjs": {
+      "bytes": 3449,
+      "sha256": "8d27f8048e2e94a2b8882cd70c66b139b9d2e3e3448fba05d8fb0445e151abee"
+    },
+    "tools/test_sapphon_098_chain.cjs": {
+      "bytes": 5711,
+      "sha256": "461e1f0ab42b99290f769327d92bae0cc2c065e1d8a27b128445ef1479a7be37"
+    },
+    "tools/test_sapphon_099_enrollment.cjs": {
+      "bytes": 6506,
+      "sha256": "241c00cfb962a3ca6af9fe6e03cf34f19aad7990285a4c5f54dac2d697059062"
+    },
+    "tools/test_sapphon_100_checkpoint.cjs": {
+      "bytes": 4736,
+      "sha256": "ba0c41625929af4eb5b406b23b8ea240d84c7b27af01cfc9b32f6c3878b3fff6"
+    },
+    "tools/test_sapphon_101_anchor.cjs": {
+      "bytes": 5042,
+      "sha256": "44113ba4b5cb37813b7e95f05d331f256c34c985f35d6b3f67b92cf64e8e5840"
+    },
+    "tools/test_sapphon_102_receipts.cjs": {
+      "bytes": 5394,
+      "sha256": "63b07ead0706bf734edb6075e5fff6007352c0ee0b5b2ceac5482065c570a0ff"
+    },
+    "tools/test_sapphon_103_challenge.cjs": {
+      "bytes": 5554,
+      "sha256": "083ad0b033b020048899f5ace270f4b475b1aa266bf589b06d00dd7a8a85e371"
+    },
+    "tools/test_sapphon_104_browser.cjs": {
+      "bytes": 2486,
+      "sha256": "c7755636ed70fd1bdb896ebf60b53584c849780c4ba1ba2566ff51309136daa3"
+    },
+    "tools/test_sapphon_104_replay.cjs": {
+      "bytes": 6026,
+      "sha256": "f8973b5e8ea5f3e701bed200d05d1082d112c41326f398c5c63e0339f3ec8806"
+    }
+  },
+  "phase": "VII",
+  "phase_vi_baseline_sha256": "1230c53be9400599cdb8f15aab64461d1555c2a6ddc90bc0e46f10e1b12f0add",
+  "phase_vi_file_count": 11,
+  "physical_clock": "HOLD",
+  "schema": "sapphon-104-phase-vii-freeze-v1",
+  "software_status": "TESTED_ONLY",
+  "stage": "8/8",
+  "utc_authority": false
+}
