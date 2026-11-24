@@ -1,0 +1,42 @@
+name: SAPPHON-101 Anchor Fork & Rollback Tests
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_101_anchor.cjs'
+      - 'tools/test_sapphon_101_anchor.cjs'
+      - 'docs/sapphon/phase-vii/101/**'
+      - '.github/workflows/sapphon-101-anchor.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test anchored ledger continuation, historical forks and rollbacks
+        run: node tools/test_sapphon_101_anchor.cjs
+      - name: Preserve inherited enrollment and checkpoint contract
+        run: |
+          node tools/test_sapphon_099_enrollment.cjs
+          node tools/test_sapphon_098_chain.cjs
+      - name: Check freeze hashes and Phase VII neon JavaScript
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-vii/101/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const required of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','EXTERNAL ANCHOR NOT YET REGISTERED'])
+            assert(h.includes(required),'Missing '+required);
+          console.log('PASS Phase VII visual syntax and truthful custody boundary');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          freeze=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for name,meta in freeze['files'].items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==meta['sha256'],name
+          print('PASS',len(freeze['files']),'immutable Phase VI source hashes')
+          PY
