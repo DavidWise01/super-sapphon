@@ -7,7 +7,7 @@ const {verifyEnvelope}=require("./sapphon_097_auth.cjs");
 const HEX=/^[a-f0-9]{64}$/;
 function fail(code){throw Error(code)}
 function keyFingerprint(publicKey){
- return crypto.createHash("sha256").update(crypto.createPublicKey(publicKey).export({type:"spki",format:"der"})).digest("hex");
+ return crypto.createHash("sha256").update((publicKey.type==="public"?publicKey:crypto.createPublicKey(publicKey)).export({type:"spki",format:"der"})).digest("hex");
 }
 function rotationMessage(r){
  if(!r||r.schema!=="sapphon-key-rotation-v1" ||
