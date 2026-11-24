@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SAPPHON-093 · Read-Only Clock Bridge</title>
+<title>SAPPHON-094 · Read-Only Clock Bridge</title>
 <style>
 :root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 8%,#292048,transparent 38%),radial-gradient(circle at 85% 18%,#003a35,transparent 40%),#080c17;color:#e7f7ff;font:14px/1.5 ui-monospace,Consolas,monospace}
 header,main,footer{max-width:1280px;margin:auto;padding:18px}header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}h1{margin:0;font-size:23px;letter-spacing:.05em}h2{font-size:14px;margin:0 0 12px;color:#8fe8d8}p{margin:7px 0;color:#aab9cb}.tag{border:1px solid #439988;border-radius:30px;padding:7px 12px;color:#8fffe5}main{display:grid;grid-template-columns:minmax(320px,1.3fr) minmax(270px,1fr);gap:14px}.panel{border:1px solid #2d4258;border-radius:14px;padding:16px;background:#0e1627;box-shadow:0 0 28px #102b3b66}canvas{display:block;width:100%;aspect-ratio:1.2;max-height:520px}.reg{display:grid;grid-template-columns:1fr 1fr;gap:9px}.reg>div{border:1px solid #28415a;border-radius:9px;padding:10px;min-width:0}.reg small{display:block;color:#8ea9c3}.reg strong{font-size:13px;overflow-wrap:anywhere}.status{font-weight:bold;color:#f6aa6b}.good{color:#7dffbe}button{background:#132c38;color:#dff;border:1px solid #3f8c93;padding:9px 12px;border-radius:8px;cursor:pointer}button:hover{background:#1b4250}input{max-width:100%;accent-color:#52e2c3}code{overflow-wrap:anywhere;color:#c0a2ff}table{width:100%;border-collapse:collapse;font-size:12px}td,th{border-bottom:1px solid #263c52;padding:7px;text-align:left}th{color:#93afa8}.buttons{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.evidence{max-height:280px;overflow:auto}footer{font-size:12px;color:#879db6}@media(max-width:760px){main{grid-template-columns:1fr}}
  .health-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.health-grid>div{background:#101f2c;border:1px solid #315665;border-radius:8px;padding:10px}.health-grid small{display:block;color:#99b5ca}.health-grid b{font-size:19px;color:#8effda}.faults{display:flex;gap:6px;flex-wrap:wrap}.faults button{font-size:11px;padding:7px}.health-log{height:98px;overflow:auto;white-space:pre-wrap;font-size:11px;color:#d2c5ec}@media(max-width:480px){.health-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}</style></head><body>
-<header><div><h1>SAPPHON <span style="color:#4aebc6">093</span></h1><p>Operational phase clock · read-only record bridge · .dlw</p></div><span class="tag" id="source-status">OFFLINE · NO LIVE CLOCK</span></header>
+<header><div><h1>SAPPHON <span style="color:#4aebc6">094</span></h1><p>Operational phase clock · read-only record bridge · .dlw</p></div><span class="tag" id="source-status">OFFLINE · NO LIVE CLOCK</span></header>
 <main><section class="panel"><h2>R / G / B · THREE PHYSICAL PUMPS · 8 PHASES</h2><canvas id="clock" width="720" height="600" aria-label="Three concentric neon clock pumps"></canvas>
 <div class="buttons"><button id="play">PLAY REPLAY</button><button id="step">STEP</button><button id="stop">PAUSE</button><button id="poll">CHECK READ-ONLY FEED</button></div>
 <input type="range" id="scrub" min="0" max="0" value="0" style="width:100%">
@@ -32,6 +32,14 @@ header,main,footer{max-width:1280px;margin:auto;padding:18px}header{display:flex
 <div><small>Conflicts</small><b id="health-conflict">0</b></div>
 <div><small>Source failures</small><b id="health-source">0</b></div>
 </div><p><strong id="health-state">NO FEED VERIFIED</strong> · Last successful fetch: <span id="health-fetch">—</span></p>
+<h2>CHECKPOINT CONTINUITY · RESTART RECOVERY</h2>
+<div class="health-grid" style="margin-bottom:12px">
+<div><small>Recovery source</small><b id="ck-source" style="font-size:12px">Checking…</b></div>
+<div><small>Checkpoint phase</small><b id="ck-sequence">—</b></div>
+<div><small>Prefix comparison</small><b id="ck-prefix" style="font-size:12px">—</b></div>
+</div>
+<p><small>Local checkpoint SHA-256 (all clock registers and authorization fields)</small></p>
+<code id="ck-digest">—</code><p id="ck-note">A browser-local checkpoint detects changes relative to its own retained copy. It is not third-party notarization.</p>
 <h2>ISOLATED FAULT-INJECTION LAB</h2>
 <p>These buttons test copied records in memory. They never alter the accepted event history or issue new time decisions.</p>
 <div class="faults">
@@ -39,16 +47,61 @@ header,main,footer{max-width:1280px;margin:auto;padding:18px}header{display:flex
 <button data-fault="gap">Missing sequence</button>
 <button data-fault="conflict">Altered authorization</button>
 <button data-fault="bad-sector">Wrong sector</button>
-<button data-fault="bad-hash">Invalid digest</button>
+<button data-fault="bad-hash">Invalid digest</button><button id="ck-test">Corrupt checkpoint (copy)</button>
 </div>
 <pre class="health-log" id="health-log">Awaiting records…</pre>
 </section></main>
-<footer>Source authority: recorded SAPPHON-082 exports. The viewer never generates timestamps, signatures, permissions, or clock decisions. Feed contract: same-origin ./live/clock.json, pinned local route, explicit static-archive or recorded-stream mode. Delayed, duplicate, malformed, out-of-order, or conflicting records are rejected or left unrendered. A conflicting or gapped stream halts polling until reload; existing observations remain read-only. Exactly three pumps; four address registers. Input/output length-address scale 1.247361111111×10^-41 m (not a physical oscillation frequency).</footer>
+<footer>Source authority: recorded SAPPHON-082 exports. The viewer never generates timestamps, signatures, permissions, or clock decisions. Feed contract: same-origin ./live/clock.json, pinned local route, explicit static-archive or recorded-stream mode. Delayed, duplicate, malformed, out-of-order, or conflicting records are rejected or left unrendered. A conflicting or gapped stream halts polling. Accepted history is retained in browser-local storage with a SHA-256 content fingerprint; restart compares the entire publisher prefix, and checkpoint corruption fails closed. Storage is not an independent trust root. Exactly three pumps; four address registers. Input/output length-address scale 1.247361111111×10^-41 m (not a physical oscillation frequency).</footer>
 <script src="./monitor.js"></script>
 <script>
 "use strict";
 const $=id=>document.getElementById(id),ctx=$("clock").getContext("2d");
-let accepted=[],seen=new Map(),cursor=0,playing=false,liveSource=false,feedLocked=false,interval=null;const PIN="sapphon-082-frozen-synthetic-export";
+let accepted=[],seen=new Map(),cursor=0,playing=false,liveSource=false,feedLocked=false,interval=null,fetchBusy=false,restoring=true,checkpointPromise=Promise.resolve();
+const PIN="sapphon-082-frozen-synthetic-export",STORAGE_KEY="sapphon094.readonly.checkpoint.v1";
+let checkpointDigest="—",restoreSource="CHECKING";
+function ckStatus(prefix){
+ $("ck-source").textContent=restoreSource;
+ $("ck-sequence").textContent=accepted.length?String(accepted.length-1):"—";
+ $("ck-digest").textContent=checkpointDigest;
+ if(prefix)$("ck-prefix").textContent=prefix;
+}
+function persistHistory(){
+ if(!accepted.length)return Promise.resolve();
+ const snapshot=accepted.slice();
+ checkpointPromise=checkpointPromise.then(async()=>{
+   const ck=await SapphonMonitor.makeCheckpoint(snapshot);
+   if(typeof localStorage!=="undefined")localStorage.setItem(STORAGE_KEY,JSON.stringify(ck));
+   checkpointDigest=ck.digest;
+   ckStatus("MATCH");
+ }).catch(err=>{
+   feedLocked=true;playing=false;healthNote("CHECKPOINT WRITE FAILED: "+err.message);
+   $("source-status").textContent="CHECKPOINT FAILURE · HALTED";
+   renderHealth("HALTED · CHECKPOINT STORAGE FAILURE");ckStatus("FAIL");
+ });
+ return checkpointPromise;
+}
+async function restoreHistory(){
+ let text;
+ try{text=localStorage.getItem(STORAGE_KEY)}catch(e){
+   restoreSource="SESSION ONLY";healthNote("Browser storage unavailable; restart persistence disabled");
+   ckStatus("NOT PERSISTED");return;
+ }
+ if(text===null){restoreSource="NEW LOCAL SESSION";ckStatus("NO PRIOR PIN");return}
+ try{
+   const ck=JSON.parse(text),restored=await SapphonMonitor.recoverCheckpoint(ck);
+   accepted=restored.map(x=>Object.freeze(x));
+   seen=new Map(accepted.map(x=>[x.seq,x.hash]));
+   health.accepted=accepted.length;cursor=accepted.length-1;
+   checkpointDigest=ck.digest;restoreSource="RECOVERED LOCAL";
+   show();ckStatus("AWAITING FEED");
+   healthNote("RESTART: recovered "+accepted.length+" immutable recorded phases; rechecking published prefix");
+ }catch(e){
+   feedLocked=true;playing=false;restoreSource="CHECKPOINT REJECTED";
+   ckStatus("FAIL · HALTED");
+   $("source-status").textContent="CORRUPT CHECKPOINT · HALTED";
+   healthNote("RESTART HALTED: "+e.message+"; no clock output accepted");
+ }
+}
 const health={accepted:0,duplicates:0,gaps:0,conflicts:0,sources:0,fetches:0};
 function renderHealth(label){
  $("health-last").textContent=accepted.length?accepted[accepted.length-1].seq:"—";
@@ -62,22 +115,27 @@ ctx.clearRect(0,0,w,h);ctx.fillStyle="#0a1122";ctx.fillRect(0,0,w,h);
 for(let j=0;j<3;j++){const rad=[205,151,98][j],color=["#ff9950","#43ecc0","#719bff"][j];ctx.strokeStyle=color;ctx.shadowBlur=24;ctx.shadowColor=color;ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,rad,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;for(let k=0;k<8;k++){let a=(k+phase*(j===1?-1:1))*Math.PI/4;ctx.fillStyle=color;ctx.beginPath();ctx.arc(cx+rad*Math.cos(a),cy+rad*Math.sin(a),k===0?7:4,0,Math.PI*2);ctx.fill();}}
 ctx.fillStyle="#eecbff";ctx.font="bold 24px Consolas";ctx.textAlign="center";ctx.fillText("{{i}}",cx,cy+8);ctx.textAlign="left";ctx.font="16px Consolas";["R HOT +1","G NEITHER 0","B COLD -1"].forEach((s,i)=>{ctx.fillStyle=["#ff9950","#43ecc0","#719bff"][i];ctx.fillText(s,18,520+i*22)});ctx.fillStyle="#c3d4ed";ctx.fillText(r?"EXPORTED PHASE "+r.seq:"NO RECORD YET",15,27)}
 function show(){const r=accepted[cursor];draw(r);if(!r)return;for(const [id,key] of [["ymd","ymd"],["hms","hms"],["angle","degree_arcminute_arcsecond"],["arcs","arc_arc_arc"]])$(id).textContent=r.address[key].join(" / ");$("phase").textContent=r.seq;$("sector").textContent=r.sector+" / 8";$("estimate").textContent=r.estimate+" s";$("uncertainty").textContent=r.uncertainty===null?"unavailable":"±"+r.uncertainty+" s";$("hash").textContent=r.hash;$("auth").textContent=(r.day?"DAY ✓":"DAY —")+" · "+(r.minute?"MINUTE ✓":"MINUTE —")+" · "+(r.second?"SECOND ✓":"SECOND —");$("auth").className=r.day?"status good":"status";$("scrub").max=Math.max(0,accepted.length-1);$("scrub").value=cursor;$("trace").innerHTML=accepted.slice(Math.max(0,cursor-6),cursor+1).map(x=>"<tr><td>"+x.seq+"</td><td>"+x.sector+"</td><td>"+x.hash.slice(0,12)+"…</td><td>"+(x.day?"DAY":"DEFER")+"</td></tr>").join("");}
-function ingest(records,kind){
+async function ingest(records,kind){
  const result=SapphonMonitor.scan(accepted,records);
- for(const r of result.append) {seen.set(r.seq,r.hash);accepted.push(Object.freeze(r));}
- health.accepted=accepted.length; health.duplicates+=result.duplicate;
- if(result.append.length){cursor=accepted.length-1;show()}
- $("bridge-status").textContent=kind+": accepted "+result.append.length+", duplicate "+result.duplicate+", total "+accepted.length;
- renderHealth(kind);return result.append.length;
+ for(const r of result.append){seen.set(r.seq,r.hash);accepted.push(Object.freeze(r))}
+ health.accepted=accepted.length;health.duplicates+=result.duplicate;
+ if(result.append.length){
+   cursor=accepted.length-1;show();
+   await persistHistory();
+   if(feedLocked)throw Object.assign(new Error("Checkpoint persistence failure"),{code:"CHECKPOINT"});
+ }
+ $("bridge-status").textContent=kind+": new "+result.append.length+", verified replay "+result.duplicate+", total "+accepted.length;
+ ckStatus("MATCH");renderHealth(kind);return result.append.length;
 }
 async function fetchFeed(){
-  if(feedLocked)return;
+  if(feedLocked||restoring||fetchBusy)return;
+  fetchBusy=true;
   try{
     const r=await fetch("./live/clock.json",{cache:"no-store"});
     if(!r.ok)throw Error("No published feed (HTTP "+r.status+")");
     const o=await r.json();
     SapphonMonitor.validateEnvelope(o,PIN);
-    ingest(o.records,o.mode==="static-archive"?"ARCHIVED EXPORT":"RECORDED STREAM");
+    await ingest(o.records,o.mode==="static-archive"?"ARCHIVED EXPORT":"RECORDED STREAM");
     liveSource=o.mode==="recorded-stream";
     $("source-status").textContent=o.mode==="static-archive"?"STATIC ARCHIVE · "+o.records.length+" PHASES":"RECORDED EXPORT · "+o.records.length+" PHASES";
     $("source-status").className="tag good";
@@ -92,7 +150,8 @@ async function fetchFeed(){
     renderHealth(feedLocked?"HALTED · MANUAL RELOAD REQUIRED":"TEMPORARY FETCH FAILURE");
     $("source-status").textContent=feedLocked?"FEED HALTED · MANUAL RELOAD REQUIRED":"OFFLINE · LAST VALID RECORDS";
     $("source-status").className="tag";
-  }
+    if(feedLocked){playing=false;ckStatus("REJECTED PREFIX");}
+  }finally{fetchBusy=false}
 }
 $("poll").onclick=fetchFeed;$("play").onclick=()=>{playing=true};$("stop").onclick=()=>{playing=false};$("step").onclick=()=>{playing=false;if(accepted.length){cursor=(cursor+1)%accepted.length;show()}};$("scrub").oninput=e=>{playing=false;cursor=+e.target.value;show()};setInterval(()=>{if(playing&&accepted.length){cursor=(cursor+1)%accepted.length;show()}},250);setInterval(fetchFeed,5000);
 document.querySelectorAll("[data-fault]").forEach(button=>button.onclick=()=>{
@@ -105,5 +164,19 @@ document.querySelectorAll("[data-fault]").forEach(button=>button.onclick=()=>{
  }catch(e){healthNote("ISOLATED "+kind+" rejected ["+(e.code||"ERROR")+"]: "+e.message+"; source history unchanged")}
  renderHealth();
 });
-renderHealth();show();fetchFeed();
+$("ck-test").onclick=async()=>{
+ if(!accepted.length){healthNote("ISOLATED CHECKPOINT TEST: no archive");return}
+ try{
+   const ck=await SapphonMonitor.makeCheckpoint(accepted);
+   const forged=JSON.parse(JSON.stringify(ck));
+   forged.records[0].day=!forged.records[0].day;
+   await SapphonMonitor.recoverCheckpoint(forged);
+   healthNote("TEST FAILURE: altered local copy was not rejected");
+ }catch(e){healthNote("ISOLATED CHECKPOINT TAMPER REJECTED ["+(e.code||"ERROR")+"]; stored history unchanged")}
+};
+(async()=>{
+ await restoreHistory();
+ restoring=false;renderHealth();show();
+ if(!feedLocked)await fetchFeed();
+})();
 </script></body></html>
