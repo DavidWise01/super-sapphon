@@ -18,9 +18,9 @@ function check(name,cb){return Promise.resolve().then(cb).then(()=>{checks++;con
     assert.equal(await page.locator("canvas").count(),1);
   });
   await check("four frozen clock registers populated",async()=>{
-   for(const k of ["ymd","hms","degrees","arcs"])assert.match(await page.locator("#"+k).textContent(),/\d+\s*\/\s*\d+/);
+   for(const k of ["ymd","hms","angle","arcs"])assert.match(await page.locator("#"+k).textContent(),/\d+\s*\/\s*\d+/);
   });
-  await check("archived source is explicitly synthetic",async()=>assert.match(await page.locator("#record-label").textContent(),/Synthetic archive/));
+  await check("archived source is explicitly synthetic",async()=>assert.match(await page.locator("#archive").textContent(),/synthetic/i));
   await check("qualification remains HOLD",async()=>assert.match(await page.locator("header").textContent(),/QUALIFICATION HOLD/));
   await check("valid synthetic consumption is visually explanatory",async()=>{
    await page.click("#shared");assert.match(await page.locator("#result").textContent(),/SIGNED_CHALLENGE_AND_RECEIPT/);
