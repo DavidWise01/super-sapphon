@@ -78,5 +78,41 @@
     if (kind === "bad-hash") { batch[0].hash = "invalid"; return batch; }
     fail("FAULT", "Unknown synthetic test");
   }
-  return Object.freeze({scan, validateEnvelope, fixtureFault});
+  /* Checkpoint covers every displayed field, including authorization, not merely
+     the producer's claimed record identity. Browser WebCrypto and Node 22 compatible. */
+  function checkpointText(rows) {
+    if (!Array.isArray(rows)) fail("CHECKPOINT","Invalid checkpoint history");
+    scan([],rows);
+    return JSON.stringify(rows.map(r => [
+      r.seq,r.sector,r.hash,r.estimate,r.uncertainty,
+      ...permissions.map(k => r[k]),...keys.map(k => r.address[k])
+    ]));
+  }
+  async function fingerprint(rows) {
+    const cryptoApi = globalThis.crypto;
+    if (!cryptoApi || !cryptoApi.subtle) fail("CRYPTO", "SHA-256 unavailable");
+    const input = new TextEncoder().encode(checkpointText(rows));
+    const bytes = new Uint8Array(await cryptoApi.subtle.digest("SHA-256",input));
+    return Array.from(bytes,b => b.toString(16).padStart(2,"0")).join("");
+  }
+  async function makeCheckpoint(rows) {
+    if (!rows.length) fail("CHECKPOINT","No records to persist");
+    const records = JSON.parse(JSON.stringify(rows));
+    return {schema:"sapphon-browser-checkpoint-v1",last_seq:records.length-1,
+      digest:await fingerprint(records),records};
+  }
+  async function recoverCheckpoint(saved) {
+    if (!saved || saved.schema!=="sapphon-browser-checkpoint-v1" ||
+        !Array.isArray(saved.records) || !saved.records.length ||
+        saved.records.length>100000 || saved.last_seq!==saved.records.length-1 ||
+        typeof saved.digest!=="string" || !/^[a-f0-9]{64}$/.test(saved.digest))
+      fail("CHECKPOINT","Unusable checkpoint manifest");
+    let computed;
+    try { computed=await fingerprint(saved.records); }
+    catch(e) { if(e.code)throw e;fail("CHECKPOINT","Malformed persisted clock history"); }
+    if(computed!==saved.digest)fail("CHECKPOINT","Persisted record data differs from checkpoint fingerprint");
+    return saved.records;
+  }
+  return Object.freeze({scan, validateEnvelope, fixtureFault,
+    fingerprint, makeCheckpoint, recoverCheckpoint});
 });
