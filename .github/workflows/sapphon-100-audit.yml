@@ -7,6 +7,7 @@ on:
       - 'tools/sapphon_100_checkpoint.cjs'
       - 'tools/sapphon_100_verify.py'
       - 'tools/test_sapphon_100_checkpoint.cjs'
+      - 'tools/sapphon_100_export.cjs'
       - 'docs/sapphon/phase-vii/100/**'
       - '.github/workflows/sapphon-100-audit.yml'
 permissions:
@@ -21,6 +22,16 @@ jobs:
         run: python3 -m pip install --user --break-system-packages 'cryptography>=43,<47'
       - name: Cross-implementation signed checkpoint acceptance
         run: node tools/test_sapphon_100_checkpoint.cjs
+      - name: Export ephemeral test-only signed audit evidence
+        run: |
+          node tools/sapphon_100_export.cjs --test-fixture /tmp/sapphon-100-evidence
+          python3 tools/sapphon_100_verify.py /tmp/sapphon-100-evidence/audit.json /tmp/sapphon-100-evidence/governance-public.pem test-governance-100
+      - name: Upload signed synthetic test checkpoint and public root
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-100-synthetic-signed-checkpoint
+          path: /tmp/sapphon-100-evidence/
+          retention-days: 30
       - name: Inherited governance lifecycle checks
         run: node tools/test_sapphon_099_enrollment.cjs
       - name: Inherited signed chain checks
