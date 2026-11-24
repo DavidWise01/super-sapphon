@@ -1,0 +1,44 @@
+name: SAPPHON-108 Acquisition Receipts & Source Ancestry
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_108_acquisition.cjs'
+      - 'tools/test_sapphon_108_acquisition.cjs'
+      - 'docs/sapphon/phase-viii/108/**'
+      - '.github/workflows/sapphon-108-acquisition.yml'
+permissions:
+  contents: read
+jobs:
+  acquisition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check signed byte acquisitions and shared GitHub mirror origins
+        run: node tools/test_sapphon_108_acquisition.cjs
+      - name: Preserve inherited evidence-byte and admission tests
+        run: |
+          node tools/test_sapphon_107_evidence.cjs
+          node tools/test_sapphon_106_admission.cjs
+          node tools/test_sapphon_105_intake.cjs
+      - name: Check neon viewer syntax and both immutable freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-viii/108/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m,'Missing browser script');
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase VIII · 4/8'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS neon acquisition viewer syntax and HOLD');
+          NODE
+          python3 - <<'PY'
+          import pathlib,json,hashlib
+          for path in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json'):
+              manifest=json.loads(pathlib.Path(path).read_text())
+              for file,entry in manifest['files'].items():
+                  assert hashlib.sha256(pathlib.Path(file).read_bytes()).hexdigest()==entry['sha256'],file
+              print('PASS',path,len(manifest['files']),'immutable hashes')
+          PY
