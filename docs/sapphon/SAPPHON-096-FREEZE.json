@@ -1,0 +1,69 @@
+{
+  "capability": "read-only visualization, checked archival replay and local recovery",
+  "files": {
+    ".github/workflows/sapphon-publisher.yml": {
+      "bytes": 3530,
+      "sha256": "90e8d275961c1838ca7cfbe4712558016eaa31b0aee7be6835bea7545c5cc2b7"
+    },
+    "docs/sapphon/SAPPHON-096-REPORT.md": {
+      "bytes": 2569,
+      "sha256": "331d8ac25e18969e3015154ad26bca8a21ffde2decbeaeff9a4de38982ae5506"
+    },
+    "docs/sapphon/index.html": {
+      "bytes": 20853,
+      "sha256": "2cc4af5dc907329ad40f3fb9417722f96f6acf098c11d6dd5198b60eb3721048"
+    },
+    "docs/sapphon/live/clock.json": {
+      "bytes": 5039,
+      "sha256": "d89c91705d7b131720882825213b89c8d8b8d749752771e8468763eec89bb0d2"
+    },
+    "docs/sapphon/monitor.js": {
+      "bytes": 6009,
+      "sha256": "b124596bfdb170a50aa8cd1ac85b49873dd56d0f662402b0bb56a4025af95e42"
+    },
+    "docs/sapphon/source/clock.json": {
+      "bytes": 4879,
+      "sha256": "f9ff192e7ad5425098ebce1e7adcf084badeaad9ad2efd67485e000e154a3850"
+    },
+    "tools/sapphon_publish.py": {
+      "bytes": 8178,
+      "sha256": "a09b1ee1bbbcf30129e72db6dde21b1ea1264ece0e6e9e8bd0278a7a8f2a1511"
+    },
+    "tools/sapphon_verify_checkpoint.py": {
+      "bytes": 6338,
+      "sha256": "8d00e9a1ee05aca36ece73c95e60f45fa2f0bb2b494b990813e9ecbff3b14249"
+    },
+    "tools/test_sapphon_browser.cjs": {
+      "bytes": 5732,
+      "sha256": "6d2624a94acd93f0673cb8052403b88b3beb369ea04ec425a100e7f605bb2c22"
+    },
+    "tools/test_sapphon_checkpoint.cjs": {
+      "bytes": 3657,
+      "sha256": "45978681ffe1c4272dcd097f454264fd1e68c51f9735710201a0f4cf0d458589"
+    },
+    "tools/test_sapphon_monitor.cjs": {
+      "bytes": 2230,
+      "sha256": "fa703bf1e1b36790cb7d15ff7544a84e751c3c2541552dea141727172ff3c8fb"
+    }
+  },
+  "logical_clock_registers": 4,
+  "not_verified": [
+    "physical clock",
+    "true UTC",
+    "source cryptographic attestation",
+    "independent witness roots",
+    "live clock producer"
+  ],
+  "phase": "VI",
+  "physical_pumps": 3,
+  "recorded_phase_count": 8,
+  "schema": "sapphon-096-phase-vi-freeze-v1",
+  "software_baseline": "SAPPHON-096",
+  "source_mode": "static-archive",
+  "stage": "8/8",
+  "test_strategy": [
+    "Node contract tests",
+    "Python verifier",
+    "Playwright Chromium on GitHub Actions"
+  ]
+}
