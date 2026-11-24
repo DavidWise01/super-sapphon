@@ -1,0 +1,44 @@
+name: SAPPHON-114 Downstream Fencing & Atomic Effects
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_114_effect.cjs'
+      - 'tools/test_sapphon_114_effect.cjs'
+      - 'docs/sapphon/phase-ix/114/**'
+      - '.github/workflows/sapphon-114-effect.yml'
+permissions:
+  contents: read
+jobs:
+  downstream:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify downstream effect destination enforces canonical epoch
+        run: node tools/test_sapphon_114_effect.cjs
+      - name: Preserve inherited canonical lease and split-brain counterexample
+        run: |
+          node tools/test_sapphon_113_fence.cjs
+          node tools/test_sapphon_112_splitbrain.cjs
+      - name: Verify neon HTML and all prior immutable freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-ix/114/index.html','utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);
+          assert(m);new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase IX · 2/8'])
+            assert(html.includes(s),'missing '+s);
+          console.log('PASS SAPPHON-114 neon viewer and HOLD');
+          NODE
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json','docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json'):
+              obj=json.loads(pathlib.Path(p).read_text())
+              for f,entry in obj['files'].items():
+                  blob=pathlib.Path(f).read_bytes()
+                  assert hashlib.sha256(blob).hexdigest()==entry['sha256'] and len(blob)==entry['bytes'],f
+              print('PASS',p,len(obj['files']),'frozen hashes')
+          PY
