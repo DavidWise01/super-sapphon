@@ -46,7 +46,7 @@ try{
  });
  reject("replay after completed response is blocked",()=>resolve(dir,c,pair(c),registries,{...ctx,tick:102}),"NONCE_REPLAY");
  test("spent nonce remains consumed through new module read",()=>assert.equal(require("./sapphon_123_challenge.cjs").inspect(dir).sessions[0].status,"USED"));
- reject("reissuing used nonce rejected",()=>issue(dir,c,{tick:103}),"NONCE_ALREADY_ISSUED");
+ reject("reissuing used nonce rejected",()=>issue(dir,{...c,issued_tick:103,expires_tick:203},{tick:103}),"NONCE_ALREADY_ISSUED");
  const c2={...c,nonce:"d".repeat(64),issued_tick:110,expires_tick:120};
  test("subsequent independent challenge can be issued",()=>assert.equal(issue(dir,c2,{tick:110}).decision,"TEST_CHALLENGE_ISSUED"));
  reject("reusing old signatures with new nonce denied",()=>resolve(dir,c2,pair(c),registries,{...ctx,tick:111}),"RESPONSE_BINDING");
