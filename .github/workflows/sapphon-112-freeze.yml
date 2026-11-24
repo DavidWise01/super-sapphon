@@ -1,0 +1,56 @@
+name: SAPPHON-112 Final Phase VIII Acceptance & Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_112_splitbrain.cjs'
+      - 'tools/test_sapphon_112_splitbrain.cjs'
+      - 'tools/test_sapphon_112_browser.cjs'
+      - 'tools/sapphon_112_freeze.py'
+      - 'docs/sapphon/phase-viii/112/**'
+      - '.github/workflows/sapphon-112-freeze.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-112-final-freeze
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Prove cross-host split-brain and fail-closed journal checks
+        run: node tools/test_sapphon_112_splitbrain.cjs
+      - name: Preserve inherited durable capture, transport, acquisition, evidence and admission regression
+        run: |
+          node tools/test_sapphon_111_durable_capture.cjs
+          node tools/test_sapphon_110_capture.cjs
+          node tools/test_sapphon_109_transcript.cjs
+          node tools/test_sapphon_108_acquisition.cjs
+          node tools/test_sapphon_107_evidence.cjs
+          node tools/test_sapphon_106_admission.cjs
+          node tools/test_sapphon_105_intake.cjs
+      - name: Install Chromium for real browser acceptance
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Browser-test frozen three pumps, four registers and split-brain UI
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/sapphon112-http.log 2>&1 &
+          sleep 2
+          node tools/test_sapphon_112_browser.cjs
+      - name: Verify Phase VI and VII freezes, emit final Phase VIII manifest
+        run: python3 tools/sapphon_112_freeze.py
+      - name: Commit freeze manifest only after all tests pass
+        run: |
+          git add docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json
+          if git diff --cached --quiet; then
+            echo 'Identical Phase VIII source inventory already frozen'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-112: publish verified Phase VIII software freeze'
+          git push origin HEAD:main
