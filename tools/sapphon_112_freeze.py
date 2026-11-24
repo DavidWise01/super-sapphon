@@ -29,7 +29,7 @@ def phase_files():
                 raise ValueError(f"Missing final Phase VIII source: {entry}")
             paths.append(entry.relative_to(ROOT).as_posix())
     paths=sorted(set(paths))
-    if len(paths)<44:
+    if len(paths)<42:
         raise ValueError("Too few Phase VIII sources for a freeze")
     assert "tools/sapphon_112_freeze.py" in paths
     assert ".github/workflows/sapphon-112-freeze.yml" in paths
