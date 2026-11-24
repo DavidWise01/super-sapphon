@@ -1,0 +1,56 @@
+name: SAPPHON-120 Phase IX Final Chromium Acceptance & Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_120_audit.cjs'
+      - 'tools/test_sapphon_120_audit.cjs'
+      - 'tools/test_sapphon_120_browser.cjs'
+      - 'tools/sapphon_120_freeze.py'
+      - 'docs/sapphon/phase-ix/120/**'
+      - '.github/workflows/sapphon-120-freeze.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-120-phase-ix-freeze
+  cancel-in-progress: false
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Verify final adversarial checkpoint and joint rollback counterexamples
+        run: node tools/test_sapphon_120_audit.cjs
+      - name: Preserve all Phase IX software regressions
+        run: |
+          node tools/test_sapphon_119_handshake.cjs
+          node tools/test_sapphon_118_anchor.cjs
+          node tools/test_sapphon_117_transaction.cjs
+          node tools/test_sapphon_116_outbox_inbox.cjs
+          node tools/test_sapphon_115_reconcile.cjs
+          node tools/test_sapphon_114_effect.cjs
+          node tools/test_sapphon_113_fence.cjs
+      - name: Install Chromium for real browser acceptance
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Verify neon clock laboratory in actual Chromium
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/sapphon120-http.log 2>&1 &
+          sleep 2
+          node tools/test_sapphon_120_browser.cjs
+      - name: Verify all ancestor manifests and create Phase IX SHA-256 freeze
+        run: python3 tools/sapphon_120_freeze.py
+      - name: Commit final manifest only after passing acceptance
+        run: |
+          git add docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json
+          if git diff --cached --quiet; then
+            echo 'Identical Phase IX source inventory already frozen'
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-120: publish verified Phase IX software freeze'
+          git push origin HEAD:main
