@@ -1,0 +1,31 @@
+name: SAPPHON-098 Chain Rotation & Ancestry
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_098_chain.cjs'
+      - 'tools/test_sapphon_098_chain.cjs'
+      - 'docs/sapphon/phase-vii/**'
+      - '.github/workflows/sapphon-098-chain.yml'
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run signed chain and key lifecycle tests
+        run: node tools/test_sapphon_098_chain.cjs
+      - name: Validate inherited signature tests
+        run: node tools/test_sapphon_097_auth.cjs
+      - name: Verify frozen Phase VI file hashes
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          m=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for f,r in m['files'].items():
+              assert hashlib.sha256(pathlib.Path(f).read_bytes()).hexdigest()==r['sha256'],f
+          print('PASS',len(m['files']),'frozen source hashes')
+          PY
