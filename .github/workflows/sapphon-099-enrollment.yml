@@ -1,0 +1,47 @@
+name: SAPPHON-099 Enrollment & Revocation Ledger
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_099_enrollment.cjs'
+      - 'tools/test_sapphon_099_enrollment.cjs'
+      - 'tools/sapphon_098_chain.cjs'
+      - 'docs/sapphon/phase-vii/099/**'
+      - '.github/workflows/sapphon-099-enrollment.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed enrollment, revocation, and re-enrollment ledger
+        run: node tools/test_sapphon_099_enrollment.cjs
+      - name: Check inherited chain and source ancestry
+        run: node tools/test_sapphon_098_chain.cjs
+      - name: Check inherited Ed25519 source authentication
+        run: node tools/test_sapphon_097_auth.cjs
+      - name: Preserve frozen Phase VI file hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifest=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for name,meta in manifest['files'].items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==meta['sha256'],name
+          print('PASS: frozen Phase VI',len(manifest['files']),'file hashes intact')
+          PY
+      - name: Check neon lifecycle page JavaScript syntax
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-vii/099/index.html','utf8');
+          const match=html.match(/<script>([\s\S]*?)<\/script>/);
+          assert(match,'Missing script');
+          new vm.Script(match[1]);
+          for(const invariant of ['{{i}}','R HOT','G NEITHER','B COLD','REVOKE','REENROLL','UNAUTHENTICATED']){
+            assert(html.includes(invariant),'Missing '+invariant);
+          }
+          console.log('PASS: Phase VII lifecycle visualization syntax and original geometry');
+          NODE
