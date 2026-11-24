@@ -73,7 +73,7 @@ function write(dir,s){
   try{fs.writeFileSync(fd,JSON.stringify(s)+"\n");fs.fsyncSync(fd)}
   finally{fs.closeSync(fd)}
   fs.renameSync(tmp,file);
-  const fd=fs.openSync(dir,"r");try{fs.fsyncSync(fd)}finally{fs.closeSync(fd)}
+  const directoryFd=fs.openSync(dir,"r");try{fs.fsyncSync(directoryFd)}finally{fs.closeSync(directoryFd)}
  }catch(e){try{fs.unlinkSync(tmp)}catch{}fail("RECEIVER_WRITE_FAILED")}
 }
 function init(dir){
