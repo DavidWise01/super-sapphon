@@ -1,0 +1,42 @@
+name: SAPPHON-102 Custody Receipt & Ancestry Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_102_receipts.cjs'
+      - 'tools/test_sapphon_102_receipts.cjs'
+      - 'docs/sapphon/phase-vii/102/**'
+      - '.github/workflows/sapphon-102-receipts.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Ed25519 receipt tamper, replay and ancestry rejection
+        run: node tools/test_sapphon_102_receipts.cjs
+      - name: Preserve inherited anchor and source lifecycle checks
+        run: |
+          node tools/test_sapphon_101_anchor.cjs
+          node tools/test_sapphon_099_enrollment.cjs
+      - name: Validate HTML and frozen Phase VI hashes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-vii/102/index.html','utf8');
+          const match=html.match(/<script>([\s\S]*?)<\/script>/);assert(match);
+          new vm.Script(match[1]);
+          for(const text of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','INDEPENDENT CUSTODY UNVERIFIED'])
+            assert(html.includes(text),'Missing '+text);
+          console.log('PASS Phase VII neon source and caution labels');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          freeze=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for name,entry in freeze['files'].items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==entry['sha256'],name
+          print('PASS',len(freeze['files']),'frozen Phase VI hashes')
+          PY
