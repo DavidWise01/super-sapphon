@@ -36,7 +36,7 @@ try{
  reject("aborted effect cannot be revived",()=>apply(dir,r("effect-third","3",1,"writer-alpha",1151)),"ABORTED_EFFECT_REQUIRES_NEW_ID");
  acquire(dir,"writer-beta",{now:1152,lease_ms:100});
  issue(dir,"writer-beta",2,n("4"),{now:1153});
- reject("stale epoch request refused at destination",()=>apply(dir,r("effect-old","3",1,"writer-alpha",1154)),"STALE_EPOCH");
+ reject("stale epoch request refused at destination",()=>apply(dir,r("effect-old","5",1,"writer-alpha",1154)),"STALE_EPOCH");
  check("fresh fencing epoch commits once",()=>{assert.equal(apply(dir,r("effect-new","4",2,"writer-beta",1155)).decision,"TEST_EFFECT_COMMITTED")});
  check("old committed result may be queried without executing a new effect",()=>{
   const v=apply(dir,r("effect-first","1",1,"writer-alpha",1156));assert.equal(v.reconciled,true);
