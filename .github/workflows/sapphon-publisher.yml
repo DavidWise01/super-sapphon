@@ -1,4 +1,4 @@
-name: SAPPHON-095 Evidence Export & Publisher
+name: SAPPHON-096 Phase VI Browser Acceptance & Freeze
 
 on:
   workflow_dispatch:
@@ -13,6 +13,8 @@ on:
       - 'tools/test_sapphon_monitor.cjs'
       - 'tools/test_sapphon_checkpoint.cjs'
       - 'tools/sapphon_verify_checkpoint.py'
+      - 'tools/test_sapphon_browser.cjs'
+      - 'tools/sapphon_freeze.py'
       - '.github/workflows/sapphon-publisher.yml'
 
 permissions:
@@ -61,12 +63,23 @@ jobs:
           assert all(all(a[k] is b[k] for k in ("second", "minute", "day")) for a,b in zip(expected,result["records"]))
           print("PASS: all authorization flags preserved; zero generated time readings")
           PY
-      - name: Commit published JSON only if changed
+      - name: Install browser acceptance dependencies
         run: |
-          git add docs/sapphon/live/clock.json
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run real Chromium visual and recovery acceptance
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/sapphon-http.log 2>&1 &
+          sleep 2
+          node tools/test_sapphon_browser.cjs
+      - name: Generate and verify immutable software freeze
+        run: python tools/sapphon_freeze.py
+      - name: Commit published JSON and frozen evidence only if changed
+        run: |
+          git add docs/sapphon/live/clock.json docs/sapphon/SAPPHON-096-FREEZE.json
           if git diff --cached --quiet; then
             echo "No change: archived clock export already current"
             exit 0
           fi
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-095: publish validated append-only clock export'
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-096: publish read-only clock and freeze verified Phase VI source'
           git push origin HEAD:main
