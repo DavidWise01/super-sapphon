@@ -1,0 +1,43 @@
+name: SAPPHON-109 Transport Transcript & Redirect Ancestry
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_109_transcript.cjs'
+      - 'tools/test_sapphon_109_transcript.cjs'
+      - 'docs/sapphon/phase-viii/109/**'
+      - '.github/workflows/sapphon-109-transcript.yml'
+permissions:
+  contents: read
+jobs:
+  transcript:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed transcript, redirect chains, peer pins, and sessions
+        run: node tools/test_sapphon_109_transcript.cjs
+      - name: Preserve acquisition and evidence byte checks
+        run: |
+          node tools/test_sapphon_108_acquisition.cjs
+          node tools/test_sapphon_107_evidence.cjs
+      - name: Verify neon browser script and both frozen source phases
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-viii/109/index.html','utf8');
+          const m=html.match(/<script>([\s\S]*?)<\/script>/);assert(m,'script missing');
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase VIII · 5/8'])
+            assert(html.includes(s),'missing '+s);
+          console.log('PASS Phase VIII transcript visualization and HOLD');
+          NODE
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          for file in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json'):
+              manifest=json.loads(pathlib.Path(file).read_text())
+              for name,meta in manifest['files'].items():
+                  assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==meta['sha256'],name
+              print('PASS',file,len(manifest['files']),'immutable hashes')
+          PY
