@@ -1,0 +1,264 @@
+{
+  "schema": "sapphon-clock-records-v1",
+  "mode": "static-archive",
+  "origin": "SAPPHON-082 recorded healthy seed-1 first eight phases",
+  "records": [
+    {
+      "seq": 0,
+      "sector": 0,
+      "estimate": 0.0007935,
+      "uncertainty": 0.012,
+      "second": false,
+      "minute": false,
+      "day": false,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          0,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "5f1722d17085301f7c9bcc790d763ed4f54cd850a00a71a6560b47232d33d984"
+    },
+    {
+      "seq": 1,
+      "sector": 1,
+      "estimate": 0.12580239,
+      "uncertainty": 0.0121,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          45,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "1475191489be2c04da5ce3fcf38aa89f129b3abcd80265748dd1a36a94904a8a"
+    },
+    {
+      "seq": 2,
+      "sector": 2,
+      "estimate": 0.250825937,
+      "uncertainty": 0.0122,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          90,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "48f642fbdfa5a163a3e3314578c9776236890fb9c1f9f4a2f5f9809eb30b1192"
+    },
+    {
+      "seq": 3,
+      "sector": 3,
+      "estimate": 0.375848173,
+      "uncertainty": 0.0123,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          135,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "dac78f8453206e4df126f9aad6efabd4268f0ec7a49c666c6b7a1fea8c59777d"
+    },
+    {
+      "seq": 4,
+      "sector": 4,
+      "estimate": 0.500860567,
+      "uncertainty": 0.0124,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          180,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "29bcee358aa248e82dabceeeb232067147317f8d83ce3d0ca9dc18380eb88642"
+    },
+    {
+      "seq": 5,
+      "sector": 5,
+      "estimate": 0.625878067,
+      "uncertainty": 0.0125,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          225,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "c79bf73963abcd29d0f8aad7478dea0c6f9f5f033b5787c3205c2b599f5a917e"
+    },
+    {
+      "seq": 6,
+      "sector": 6,
+      "estimate": 0.750894914,
+      "uncertainty": 0.0126,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          270,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "e45460f1cd01bf6b8453f231eca7374d49d870fd16bb0f42012a3a905bc47c5e"
+    },
+    {
+      "seq": 7,
+      "sector": 7,
+      "estimate": 0.875916034,
+      "uncertainty": 0.0127,
+      "second": true,
+      "minute": true,
+      "day": true,
+      "address": {
+        "arc_arc_arc": [
+          0,
+          0,
+          0
+        ],
+        "degree_arcminute_arcsecond": [
+          315,
+          0,
+          0
+        ],
+        "hms": [
+          0,
+          0,
+          0
+        ],
+        "ymd": [
+          2026,
+          11,
+          23
+        ]
+      },
+      "hash": "124efbd98d540d26b0c850d6facd997e9bf4fe217c38cee1efb577fd9b2ae4d1"
+    }
+  ],
+  "description": "Frozen synthetic clock export, not a live hardware feed"
+}
