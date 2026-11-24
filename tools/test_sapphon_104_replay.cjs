@@ -49,7 +49,7 @@ try{
    const c=issue(storage,anchor,identity,{now:1600,nonce:"2".repeat(64)});
    consume(storage,args({...c.challenge,session_id:"altered-session"}),{now:1601});
  },"ISSUED_CHALLENGE_MISMATCH");
- rejects("missing registry fails closed",()=>consume(path.join(root,"missing"),args({}),{now:1}),"STORE_UNINITIALIZED");
+ rejects("missing registry fails closed",()=>{const valid=issue(storage,anchor,identity,{now:1650,nonce:"8".repeat(64)});consume(path.join(root,"missing"),args(valid.challenge),{now:1651})},"STORE_UNINITIALIZED");
  rejects("invalid low TTL",()=>issue(storage,anchor,identity,{now:1700,ttl_ms:0}),"TTL_OUT_OF_BOUNDS");
  rejects("invalid excessive TTL",()=>issue(storage,anchor,identity,{now:1700,ttl_ms:MAX_TTL+1}),"TTL_OUT_OF_BOUNDS");
  rejects("missing clock reference fails closed",()=>issue(storage,anchor,identity,{}),"BAD_LOCAL_TIME");
