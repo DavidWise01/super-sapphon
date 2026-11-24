@@ -1,4 +1,4 @@
-name: SAPPHON-094 Checkpoint Recovery & Publisher
+name: SAPPHON-095 Evidence Export & Publisher
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ on:
       - 'docs/sapphon/index.html'
       - 'tools/test_sapphon_monitor.cjs'
       - 'tools/test_sapphon_checkpoint.cjs'
+      - 'tools/sapphon_verify_checkpoint.py'
       - '.github/workflows/sapphon-publisher.yml'
 
 permissions:
@@ -38,6 +39,8 @@ jobs:
         run: node tools/test_sapphon_monitor.cjs
       - name: Validate browser checkpoint recovery and HTML syntax
         run: node tools/test_sapphon_checkpoint.cjs
+      - name: Independently verify checkpoint source and tampering detection
+        run: python tools/sapphon_verify_checkpoint.py --test
       - name: Validate recorded clock input and injection rejection
         run: python tools/sapphon_publish.py --test
       - name: Produce read-only JSON output
@@ -65,5 +68,5 @@ jobs:
             echo "No change: archived clock export already current"
             exit 0
           fi
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-094: publish validated append-only clock export'
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-095: publish validated append-only clock export'
           git push origin HEAD:main
