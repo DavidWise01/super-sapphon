@@ -1,0 +1,46 @@
+name: SAPPHON-100 Signed Enrollment Checkpoint Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_100_checkpoint.cjs'
+      - 'tools/sapphon_100_verify.py'
+      - 'tools/test_sapphon_100_checkpoint.cjs'
+      - 'docs/sapphon/phase-vii/100/**'
+      - '.github/workflows/sapphon-100-audit.yml'
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install standalone Python signature verifier dependency
+        run: python3 -m pip install --user --break-system-packages 'cryptography>=43,<47'
+      - name: Cross-implementation signed checkpoint acceptance
+        run: node tools/test_sapphon_100_checkpoint.cjs
+      - name: Inherited governance lifecycle checks
+        run: node tools/test_sapphon_099_enrollment.cjs
+      - name: Inherited signed chain checks
+        run: node tools/test_sapphon_098_chain.cjs
+      - name: Inspect visual page and preserve frozen Phase VI
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-vii/100/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m,'Script missing');
+          new vm.Script(m[1]);
+          for(const item of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','NOT GRANTED']){
+            assert(h.includes(item),'Missing '+item);
+          }
+          console.log('PASS visual syntax, three pumps and clock authorization boundary');
+          NODE
+          python3 - <<'PY'
+          import pathlib,json,hashlib
+          m=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for name,info in m['files'].items():
+              assert hashlib.sha256(pathlib.Path(name).read_bytes()).hexdigest()==info['sha256'],name
+          print('PASS',len(m['files']),'frozen Phase VI hashes')
+          PY
