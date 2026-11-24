@@ -37,7 +37,7 @@ function inspectEnvelope(envelope,registry,knownOwnership=[]){
  if(!registry||!Object.hasOwn(registry,envelope.key_id))fail("UNTRUSTED_ROOT");
  const trusted=registry[envelope.key_id];
  if(trusted.revoked)fail("REVOKED_ROOT");
- const spki=crypto.createPublicKey(trusted.publicKey).export({type:"spki",format:"der"});
+ const spki=(trusted.publicKey.type==="public"?trusted.publicKey:crypto.createPublicKey(trusted.publicKey)).export({type:"spki",format:"der"});
  if(digest(spki)!==p.public_key_spki_sha256||trusted.root_id!==p.root_id||
    trusted.source_kind!==p.source_kind||trusted.ownership_domain!==p.ownership_domain)
    fail("ROOT_IDENTITY_MISMATCH");
