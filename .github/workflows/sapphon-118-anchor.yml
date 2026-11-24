@@ -1,0 +1,44 @@
+name: SAPPHON-118 Signed Monotonic Receiver Checkpoints
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_118_anchor.cjs'
+      - 'tools/test_sapphon_118_anchor.cjs'
+      - 'docs/sapphon/phase-ix/118/**'
+      - '.github/workflows/sapphon-118-anchor.yml'
+permissions:
+  contents: read
+jobs:
+  anchor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify signed checkpoint integrity, monotonic history and joint rollback counterexample
+        run: node tools/test_sapphon_118_anchor.cjs
+      - name: Preserve transactional receiver and outbox inbox regressions
+        run: |
+          node tools/test_sapphon_117_transaction.cjs
+          node tools/test_sapphon_116_outbox_inbox.cjs
+      - name: Verify neon viewer and all three inherited immutable freezes
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-ix/118/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase IX · 6/8'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS SAPPHON-118 neon viewer and qualification HOLD');
+          NODE
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json','docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json'):
+              m=json.loads(pathlib.Path(p).read_text())
+              for f,record in m['files'].items():
+                  b=pathlib.Path(f).read_bytes()
+                  assert hashlib.sha256(b).hexdigest()==record['sha256'] and len(b)==record['bytes'],f
+              print('PASS',p,len(m['files']),'frozen hashes')
+          PY
