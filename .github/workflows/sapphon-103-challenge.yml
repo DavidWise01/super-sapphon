@@ -1,0 +1,43 @@
+name: SAPPHON-103 Provisioned Custodian Challenge
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_103_challenge.cjs'
+      - 'tools/test_sapphon_103_challenge.cjs'
+      - 'docs/sapphon/phase-vii/103/**'
+      - '.github/workflows/sapphon-103-challenge.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify challenge binding and replay prevention
+        run: node tools/test_sapphon_103_challenge.cjs
+      - name: Verify inherited custody and fork gates
+        run: |
+          node tools/test_sapphon_102_receipts.cjs
+          node tools/test_sapphon_101_anchor.cjs
+      - name: Validate neon viewer and frozen clock evidence
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const html=fs.readFileSync('docs/sapphon/phase-vii/103/index.html','utf8');
+          const match=html.match(/<script>([\s\S]*?)<\/script>/);
+          assert(match,'Missing browser script');new vm.Script(match[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1',
+                           'OUT-OF-BAND CUSTODY UNVERIFIED','256-bit challenge nonce'])
+            assert(html.includes(s),'Missing '+s);
+          console.log('PASS neon Phase VII geometry and trust boundaries');
+          NODE
+          python3 - <<'PY'
+          import pathlib,hashlib,json
+          manifest=json.loads(pathlib.Path('docs/sapphon/SAPPHON-096-FREEZE.json').read_text())
+          for p,record in manifest['files'].items():
+              assert hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()==record['sha256'],p
+          print('PASS',len(manifest['files']),'immutable Phase VI files')
+          PY
