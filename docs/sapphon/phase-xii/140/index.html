@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-140 · Dual-Custodian Checkpoint Laboratory</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at center 30%,#282041,#090818 70%);color:#eeeaff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #675b8e}h1{margin:5px 0;font-size:clamp(23px,3vw,38px);text-shadow:0 0 17px #a774ff88}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(300px,2fr);gap:16px;padding:20px;max-width:1400px;margin:auto}.pane{border:1px solid #68568f;border-radius:15px;background:#151129bb;overflow:hidden;box-shadow:0 0 30px #5731994d}
+canvas{width:100%;height:440px;display:block}.side{padding:22px}.metric{border:1px solid #4d436b;border-radius:8px;margin:10px 0;padding:12px;background:#111026}strong{color:#3cf5db}.hold{font-size:28px;font-weight:900;color:#ffa05c}
+button{background:#362652;border:1px solid #b087dc;color:white;padding:10px 12px;border-radius:8px;margin:5px 5px 5px 0;cursor:pointer}
+small,.muted{color:#bcb4d2}footer{text-align:center;padding:22px;color:#aba2c6}code{color:#a6ffee}
+@media(max-width:800px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XII · 4 OF 8 · SIMULATED CHECKPOINT EVIDENCE</small>
+<h1>SAPPHON-140 · Dual-Custodian Checkpoint</h1>
+<div class="muted">Local append → Two signed receipts → Unproven external custody → HOLD</div></header>
+<main><section class="pane"><canvas id="canvas" aria-label="Rotating neon hypercube and two witness positions"></canvas></section>
+<section class="pane side">
+<div class="metric">Local durable append <strong>FSYNC + READBACK</strong></div>
+<div class="metric">Witness A <strong id="a">NO RECEIPT</strong></div>
+<div class="metric">Witness B <strong id="b">NO RECEIPT</strong></div>
+<div class="metric">External custody <strong>NOT AUTHENTICATED</strong></div>
+<div class="metric">Global anti-rollback <strong>UNVERIFIED</strong></div>
+<div class="metric">Authority <div class="hold">HOLD</div></div>
+<button id="first">Simulate receipt A</button><button id="second">Simulate receipt B</button><button id="restart">Restart simulation</button>
+<p id="state" class="muted" role="status">LOCAL DURABLE · AWAITING EVIDENCE · HOLD</p>
+<small>Visual demonstration only: simulated receipts are not actual cryptographic proofs or confirmation of independent witnesses.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const el=document.getElementById("canvas"),cx=el.getContext("2d");let tick=0,first=false,second=false;
+const verts=Array.from({length:16},(_,n)=>[0,1,2,3].map(k=>(n>>k)&1?1:-1));let edges=[];
+for(let a=0;a<16;a++)for(let b=a+1;b<16;b++)if(((a^b)&((a^b)-1))===0)edges.push([a,b]);
+function status(){document.getElementById("a").textContent=first?"SIMULATED":"NO RECEIPT";document.getElementById("b").textContent=second?"SIMULATED":"NO RECEIPT";document.getElementById("state").textContent=first&&second?"TWO SIMULATED RECEIPTS · CUSTODY UNPROVEN · HOLD":"LOCAL DURABLE · AWAITING EVIDENCE · HOLD"}
+document.getElementById("first").onclick=()=>{first=true;status()};document.getElementById("second").onclick=()=>{second=true;status()};document.getElementById("restart").onclick=()=>{first=false;second=false;status()};
+function transform(v){let [x,y,z,w]=v,a=tick*.005;let cs=Math.cos(a),ss=Math.sin(a);[x,w]=[x*cs-w*ss,x*ss+w*cs];let b=a*.57;[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.9/(4-w),g=2/(3.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=el.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);el.width=Math.round(r.width*d);el.height=Math.round(r.height*d);cx.setTransform(d,0,0,d,0,0);
+const W=r.width,H=r.height,p=verts.map(transform),sc=Math.min(W,H)*.28;cx.fillStyle="#0b091e";cx.fillRect(0,0,W,H);
+edges.forEach(([a,b])=>{const n=Math.log2(a^b),palette=["#3fffe0","#ba7eff","#ff995e","#8daeff"];cx.beginPath();cx.moveTo(W/2+p[a][0]*sc,H/2+p[a][1]*sc);cx.lineTo(W/2+p[b][0]*sc,H/2+p[b][1]*sc);cx.strokeStyle=palette[n];cx.shadowColor=palette[n];cx.shadowBlur=16;cx.lineWidth=n===3?2.2:1.3;cx.stroke()});cx.shadowBlur=0;
+cx.font="13px monospace";cx.fillStyle="#d2c2eb";cx.fillText("2 signed keys ≠ independent custody",15,H-20);
+for(let i=0;i<2;i++){const active=i===0?first:second;const x=(i===0?W*.27:W*.73);cx.beginPath();cx.arc(x,28,8,0,Math.PI*2);cx.fillStyle=active?"#3fffe0":"#59506c";cx.shadowColor=active?"#3fffe0":"transparent";cx.shadowBlur=15;cx.fill()}cx.shadowBlur=0;
+tick++;requestAnimationFrame(draw)}draw();
+</script></body></html>
