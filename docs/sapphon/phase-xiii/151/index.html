@@ -1,0 +1,46 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-151 · Blind Custody Challenge</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 20%,#362152,#090b19 74%);color:#f2edff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #745993}h1{font-size:clamp(24px,3vw,38px);margin:6px 0;text-shadow:0 0 20px #b07affaa}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1460px;margin:20px auto;padding:0 16px}
+.panel{border:1px solid #705593;background:#15112bdb;border-radius:15px;overflow:hidden;box-shadow:0 0 29px #502f815a}
+canvas{height:470px;width:100%;display:block}.side{padding:20px}.metric{background:#17112b;border:1px solid #574774;margin:9px 0;padding:12px;border-radius:9px}
+strong{color:#38ffe1}.hold{font-weight:900;font-size:30px;color:#ff9c61;text-shadow:0 0 20px #ff784088}
+button{background:#382653;color:#fff;border:1px solid #b28add;padding:9px 11px;border-radius:8px;cursor:pointer;margin:4px}
+.muted,small{color:#bcaed0}footer{text-align:center;padding:22px;color:#bdafd4}code{color:#abffe9}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XIII · 7 OF 8 · 87.5% DESIGN · SYNTHETIC THREAT MATRIX</small>
+<h1>SAPPHON-151 · Blinded Cross-Custody Challenge</h1>
+<div class="muted">One source copied three times is still one ancestor · 4D neon shadow projection</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Rotating neon four-dimensional tesseract showing three purported witnesses and their source ancestry"></canvas></section>
+<section class="panel side">
+<div class="metric">Signed checkpoint screening <strong>RUST GATE</strong></div>
+<div class="metric">Packet names <strong>BLINDED / NOT TRUSTED</strong></div>
+<div class="metric">Scenario <strong id="finding">MATCHING CONTENT, UNPROVEN CUSTODY</strong></div>
+<div class="metric">Physical independence <strong>NOT ESTABLISHED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="match">Matching copies</button><button id="shared">Shared ancestry</button>
+<button id="conflict">Signed conflict</button><button id="async">Async sequence</button>
+<p class="muted" id="note" role="status">Multiple copies of identical records do not create independent witnesses.</p>
+<small>This animation uses synthetic evidence only. It does not verify live signatures, remote custodians, GitHub Actions, or a Pages deployment.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let angle=0,mode=0;
+const situations=[
+["MATCHING CONTENT, UNPROVEN CUSTODY","Multiple copies of identical records do not create independent witnesses."],
+["SHARED_ANCESTRY / COPIED_RECEIPT","Different witness labels refer to the same claimed source ancestry."],
+["CROSS_PROVIDER_CONFLICT","Two signed same-sequence heads disagree. Evidence remains disputed."],
+["ASYNC_SEQUENCE","Different checkpoint floors require prefix evidence, not a false accusation of equivocation."]
+];
+function choose(n){mode=n;document.getElementById("finding").textContent=situations[n][0];document.getElementById("note").textContent=situations[n][1]}
+for(const [id,n]of [["match",0],["shared",1],["conflict",2],["async",3]])document.getElementById(id).onclick=()=>choose(n);
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=angle,b=angle*.58;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.8/(4-w),g=2.5/(4.5-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#0a0920";ctx.fillRect(0,0,W,H);
+const k=Math.min(W,H)*.28,p=vs.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),color=mode===2&&axis===3?"#ff4375":mode===1&&axis===1?"#ff9c63":["#3affe1","#b98bff","#ffa465","#8cbfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.lineWidth=axis===3?2.15:1.35;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=17;ctx.stroke()}
+ctx.shadowBlur=0;ctx.fillStyle=mode?"#ffab85":"#b6ffed";ctx.font="12px monospace";ctx.fillText(["COPIES ≠ INDEPENDENT CUSTODIANS","SHARED ANCESTRY → HOLD","SIGNED CONFLICT → HOLD","ASYNC DOES NOT PROVE FORK"][mode],15,H-19);angle+=.006;requestAnimationFrame(frame)}frame();
+</script></body></html>
