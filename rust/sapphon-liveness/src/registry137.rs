@@ -54,27 +54,26 @@ fn fold(events: &[Event]) -> Result<Snapshot, Error> {
         if e.seq != (i as u64)+1 || e.prev_hash != prior {
             return Err(Error("REGISTRY_CHAIN"));
         }
-        let existing = keys.get_mut(&e.witness_id);
-        match (e.kind.as_str(), existing) {
-            ("register", None) => {
-                if keys.values().any(|k| k.public_key_hex == e.public_key_hex) {
-                    return Err(Error("REGISTRY_DUPLICATE_KEY"));
-                }
-                keys.insert(e.witness_id.clone(), TrustedKey {
-                    witness_id:e.witness_id.clone(), ancestry_root:e.ancestry_root.clone(),
-                    public_key_hex:e.public_key_hex.clone(), revoked:false,
-                    min_counter:e.counter_floor
-                });
+        if e.kind == "register" {
+            if keys.contains_key(&e.witness_id) { return Err(Error("REGISTRY_TRANSITION")); }
+            if keys.values().any(|k| k.public_key_hex == e.public_key_hex) {
+                return Err(Error("REGISTRY_DUPLICATE_KEY"));
             }
-            ("advance", Some(k)) if !k.revoked &&
-                k.ancestry_root == e.ancestry_root && k.public_key_hex == e.public_key_hex &&
-                e.counter_floor > k.min_counter => k.min_counter=e.counter_floor,
-            ("revoke", Some(k)) if !k.revoked &&
-                k.ancestry_root == e.ancestry_root && k.public_key_hex == e.public_key_hex &&
-                e.counter_floor >= k.min_counter => {
-                    k.min_counter=e.counter_floor; k.revoked=true;
-                }
-            _ => return Err(Error("REGISTRY_TRANSITION")),
+            keys.insert(e.witness_id.clone(), TrustedKey {
+                witness_id:e.witness_id.clone(), ancestry_root:e.ancestry_root.clone(),
+                public_key_hex:e.public_key_hex.clone(), revoked:false,
+                min_counter:e.counter_floor
+            });
+        } else {
+            let k=keys.get_mut(&e.witness_id).ok_or(Error("REGISTRY_TRANSITION"))?;
+            if k.revoked || k.ancestry_root != e.ancestry_root
+                || k.public_key_hex != e.public_key_hex
+                || (e.kind == "advance" && e.counter_floor <= k.min_counter)
+                || (e.kind == "revoke" && e.counter_floor < k.min_counter) {
+                return Err(Error("REGISTRY_TRANSITION"));
+            }
+            k.min_counter=e.counter_floor;
+            if e.kind == "revoke" {k.revoked=true;}
         }
         let encoded=serde_json::to_vec(e).map_err(|_|Error("REGISTRY_ENCODING"))?;
         prior=hash(&encoded);
