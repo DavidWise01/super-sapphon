@@ -1,0 +1,42 @@
+name: SAPPHON Rust — Signed Publication & Ancestry Audit
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-audit/**'
+      - '.github/workflows/sapphon-rust-audit.yml'
+permissions:
+  contents: read
+jobs:
+  rust-audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: rust/sapphon-audit
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain version
+        run: rustc --version && cargo --version
+      - name: Format check
+        run: cargo fmt --all -- --check
+      - name: Compile and execute Rust audit regressions
+        run: cargo test --all-targets --verbose
+      - name: Verify Rust documentation
+        run: cargo doc --no-deps
+      - name: Preserve all prior immutable software baselines
+        working-directory: .
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json',
+                    'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+                    'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+                    'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json'):
+              data=json.loads(pathlib.Path(p).read_text())
+              for name,record in data['files'].items():
+                  blob=pathlib.Path(name).read_bytes()
+                  assert hashlib.sha256(blob).hexdigest()==record['sha256'] and len(blob)==record['bytes'],name
+              print('PASS',p,len(data['files']),'immutable sources')
+          PY
