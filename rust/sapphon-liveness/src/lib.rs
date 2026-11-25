@@ -10,6 +10,7 @@ use std::{
 };
 pub const AUTHORITY: &str = "HOLD";
 pub mod pinned;
+pub mod custody;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
