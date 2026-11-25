@@ -1,0 +1,74 @@
+name: SAPPHON-131 Rust Signed Recovery Receipts & Operator Lock Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-recovery/**'
+      - 'docs/sapphon/phase-xi/131/**'
+      - '.github/workflows/sapphon-131-recovery.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-131-recovery
+  cancel-in-progress: false
+jobs:
+  recovery:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Format Rust recovery code
+        run: cargo fmt --manifest-path rust/sapphon-recovery/Cargo.toml --all
+      - name: Test signed receipt, replay, exact journal and lock clearance gates
+        run: cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+      - name: Preserve inherited Rust recovery and signed audit regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify documentation
+        run: cargo doc --manifest-path rust/sapphon-recovery/Cargo.toml --no-deps
+      - name: Verify neon viewer and physical clock HOLD
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-xi/131/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const word of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1',
+            'PHYSICAL CLOCK + CUSTODY HOLD','Phase XI · 3/8','PROCESS-LIVENESS HOLD'])
+            assert(h.includes(word),'Missing '+word);
+          console.log('PASS SAPPHON-131 neon recovery viewer and external HOLD');
+          NODE
+      - name: Preserve all 188 historical frozen file hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+           'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+           'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+           'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+           'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          total=0
+          for path in manifests:
+            entries=json.loads(pathlib.Path(path).read_text())['files']
+            for name,record in entries.items():
+              blob=pathlib.Path(name).read_bytes()
+              assert hashlib.sha256(blob).hexdigest()==record['sha256'] and len(blob)==record['bytes'],name
+            total+=len(entries)
+            print('PASS',path,len(entries),'frozen hashes')
+          assert total==188,total
+          print('PASS 188/188 inherited frozen sources')
+          PY
+      - name: Commit tested Rust formatting
+        run: |
+          git add rust/sapphon-recovery/src rust/sapphon-recovery/tests
+          if git diff --cached --quiet; then
+            echo 'Rust source formatting already canonical'
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-131: commit verified Rust receipt formatting'
+            git push origin HEAD:main
+          fi
