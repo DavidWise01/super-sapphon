@@ -1,7 +1,7 @@
 //! SAPPHON-133: bound owner-marker continuity to an independently retained digest.
 //! A digest supplied by the same untrusted marker is NOT independent custody.
 //! This module only qualifies evidence for further signed review; never clears locks.
-use crate::{qualify, Finding, Error};
+use crate::{qualify, Error, Finding};
 use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
@@ -21,7 +21,9 @@ pub fn marker_digest(bytes: &[u8]) -> String {
 /// neither removes TOCTOU races or grants automatic recovery rights.
 pub fn qualify_pinned(root: &Path, expected_marker_sha256: &str) -> Result<Finding, Error> {
     if expected_marker_sha256.len() != 64
-        || !expected_marker_sha256.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        || !expected_marker_sha256
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
     {
         return Err(Error("PIN_INVALID"));
     }
@@ -54,12 +56,23 @@ mod tests {
     #[test]
     fn invalid_pin_is_rejected_before_any_os_observation() {
         let nonexistent = Path::new("/nonexistent-sapphon-133");
-        assert_eq!(qualify_pinned(nonexistent, "caller-declared-dead").unwrap_err().0, "PIN_INVALID");
-        assert_eq!(qualify_pinned(nonexistent, &"A".repeat(64)).unwrap_err().0, "PIN_INVALID");
+        assert_eq!(
+            qualify_pinned(nonexistent, "caller-declared-dead")
+                .unwrap_err()
+                .0,
+            "PIN_INVALID"
+        );
+        assert_eq!(
+            qualify_pinned(nonexistent, &"A".repeat(64)).unwrap_err().0,
+            "PIN_INVALID"
+        );
     }
     #[test]
     fn unknown_marker_cannot_claim_custody() {
         let nonexistent = Path::new("/nonexistent-sapphon-133");
-        assert_eq!(qualify_pinned(nonexistent, &"a".repeat(64)).unwrap_err().0, "PIN_MARKER_UNREADABLE");
+        assert_eq!(
+            qualify_pinned(nonexistent, &"a".repeat(64)).unwrap_err().0,
+            "PIN_MARKER_UNREADABLE"
+        );
     }
 }
