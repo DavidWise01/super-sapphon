@@ -35,6 +35,8 @@ pub mod dual_anchor146;
 pub mod lineage147;
 #[cfg(target_os = "linux")]
 pub mod failover148;
+#[cfg(target_os = "linux")]
+pub mod replay149;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
