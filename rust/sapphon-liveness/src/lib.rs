@@ -23,6 +23,8 @@ pub mod checkpoint140;
 pub mod equivocation141;
 #[cfg(target_os = "linux")]
 pub mod export142;
+#[cfg(target_os = "linux")]
+pub mod quarantine143;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
