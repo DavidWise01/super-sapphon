@@ -1,0 +1,56 @@
+name: SAPPHON-141 Witness Equivocation Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-141-equivocation.yml'
+      - 'docs/sapphon/phase-xii/141/**'
+permissions:
+  contents: read
+jobs:
+  equivocation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Rust equivocation and inherited Linux tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check original recovery and audit regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historical source freezes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for p,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  b=pathlib.Path(p).read_bytes()
+                  assert len(b)==expected['bytes'],p
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],p
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 frozen hashes')
+          PY
+      - name: Assert authority and source ancestry remain unqualified
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/equivocation141.rs').read_text()
+          for x in ('pub const AUTHORITY: &str = "HOLD"','HISTORY_EQUIVOCATION',
+                    'HISTORY_REPLAY','HISTORY_ANCHOR_MISMATCH',
+                    'checkpoint_acknowledged:false','independence_proven:false',
+                    'lock_cleared:false'):
+              assert x in s,x
+          print('PASS source-level HOLD assertions')
+          PY
