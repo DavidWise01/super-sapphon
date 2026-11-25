@@ -41,28 +41,26 @@ pub fn inspect_lineage(
     let pair=dual_anchor146::compare(a,b)?;
     let verified=registry137::verify(transcript,local_seq,local_head)?;
     let (older,newer)=if a.0.sequence<=b.0.sequence {(a.0,b.0)} else {(b.0,a.0)};
-    let lineage=if older.sequence==newer.sequence {
-        if older.head_sha256==newer.head_sha256 {Lineage::Identical}
-        else {Lineage::ConflictingHistory}
-    } else if newer.sequence>verified.seq {
-        // The newer anchor cannot be verified against incomplete local history.
-        return Err(Error("LINEAGE_NEWER_NOT_OBSERVED"));
+    if newer.sequence>verified.seq {return Err(Error("LINEAGE_NEWER_NOT_OBSERVED"));}
+    let mut prefix_heads=vec![registry137::genesis_head()];
+    for line in transcript.split_inclusive(|ch|*ch==b'\\n') {
+        if line.is_empty(){continue;}
+        if line.last()!=Some(&b'\\n'){return Err(Error("LINEAGE_TRUNCATED"));}
+        let event:registry137::Event=serde_json::from_slice(&line[..line.len()-1])
+            .map_err(|_|Error("LINEAGE_CORRUPT"))?;
+        let canonical=serde_json::to_vec(&event).map_err(|_|Error("LINEAGE_ENCODING"))?;
+        prefix_heads.push(hex::encode(Sha256::digest(canonical)));
+    }
+    let older_head=prefix_heads.get(older.sequence as usize)
+        .ok_or(Error("LINEAGE_PREFIX_UNKNOWN"))?;
+    let newer_head=prefix_heads.get(newer.sequence as usize)
+        .ok_or(Error("LINEAGE_PREFIX_UNKNOWN"))?;
+    let lineage=if older_head!=&older.head_sha256 || newer_head!=&newer.head_sha256 {
+        Lineage::ConflictingHistory
+    } else if older.sequence==newer.sequence {
+        Lineage::Identical
     } else {
-        let mut head=registry137::genesis_head();
-        let mut seq=0u64;
-        for line in transcript.split_inclusive(|ch|*ch==b'\n') {
-            if line.is_empty() {continue;}
-            if line.last()!=Some(&b'\n') {return Err(Error("LINEAGE_TRUNCATED"));}
-            let e: registry137::Event=serde_json::from_slice(&line[..line.len()-1])
-                .map_err(|_|Error("LINEAGE_CORRUPT"))?;
-            head=hex::encode(Sha256::digest(serde_json::to_vec(&e)
-                .map_err(|_|Error("LINEAGE_ENCODING"))?));
-            seq+=1;
-            if seq==older.sequence {break;}
-        }
-        if older.sequence==0 {head=registry137::genesis_head();}
-        if head==older.head_sha256 {Lineage::ProvenPrefixWithLag}
-        else {Lineage::ConflictingHistory}
+        Lineage::ProvenPrefixWithLag
     };
     let evidence=format!("SAPPHON-147-LINEAGE-v1\n{}\n{}\n{}\n{}\n{}\n{}\n",
         older.provider_id,older.sequence,older.head_sha256,
