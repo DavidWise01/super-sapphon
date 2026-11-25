@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-145 · Signed Anchor Recovery Lab</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 27%,#291b46,#090919 72%);color:#eee9ff;font:15px system-ui,sans-serif}
+header{padding:25px 5vw;border-bottom:1px solid #6c5792}h1{margin:6px 0;font-size:clamp(23px,3vw,38px);text-shadow:0 0 20px #a86efc}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1450px;margin:20px auto;padding:0 16px}
+.panel{border:1px solid #69518f;background:#141029cf;border-radius:16px;overflow:hidden;box-shadow:0 0 25px #61408644}
+canvas{height:440px;width:100%;display:block}.side{padding:20px}.metric{border:1px solid #544571;padding:12px;border-radius:9px;margin:10px 0}
+strong{color:#42ffe6}.hold{font-size:30px;color:#ff9b64;font-weight:900;text-shadow:0 0 20px #ff753881}
+button{color:#fff;background:#33224c;border:1px solid #a884d6;padding:9px 12px;border-radius:9px;cursor:pointer;margin:4px 4px 4px 0}
+small,.muted{color:#b7accd}footer{text-align:center;padding:22px;color:#ae9fc7}code{color:#9dffe8}
+@media(max-width:820px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XIII · 1/8 · 12.5% DESIGN · SIMULATED EVIDENCE</small><h1>SAPPHON-145 · Signed Anchor Recovery</h1>
+<div class="muted">4D shadow tesseract · 3 pumps · 4 registers · one output · authority gated</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Animated neon hypercube with signed checkpoint witness"></canvas></section>
+<section class="panel side">
+<div class="metric">Anchor signature <strong>ED25519 INTERFACE</strong></div>
+<div class="metric">Counter and epoch floor <strong>EXTERNAL PROVISION REQUIRED</strong></div>
+<div class="metric">Local registry state <strong id="state">MATCHING (SIMULATION)</strong></div>
+<div class="metric">Provider independence <strong>UNPROVEN</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="rollback">Simulate rollback</button><button id="conflict">Simulate conflicting head</button><button id="reset">Reset</button>
+<p id="explain" class="muted">A matching signed anchor never grants recovery authority.</p>
+<small>Illustrative browser animation only. No remote provider is contacted, and no real signature, custody, CI or deployment evidence is authenticated here.</small></section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+'use strict';const canvas=document.getElementById('field'),ctx=canvas.getContext('2d');let t=0,mode=0;
+const v=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function set(m){mode=m;document.getElementById('state').textContent=['MATCHING (SIMULATION)','LOCAL BEHIND ANCHOR','CONFLICTING ANCHOR HEAD'][m];document.getElementById('explain').textContent=m===0?'A matching signed anchor never grants recovery authority.':m===1?'The local journal may have been rolled back. No automatic repair.':'The checkpoint heads disagree. Evidence is quarantined; authority remains HOLD.'}
+document.getElementById('rollback').onclick=()=>set(1);document.getElementById('conflict').onclick=()=>set(2);document.getElementById('reset').onclick=()=>set(0);
+function p(a){let[x,y,z,w]=a,b=t*.005;[x,w]=[x*Math.cos(b)-w*Math.sin(b),x*Math.sin(b)+w*Math.cos(b)];b*=.63;[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),g=2.4/(4.4-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d);ctx.setTransform(d,0,0,d,0,0);
+const W=r.width,H=r.height,k=Math.min(W,H)*.27,pts=v.map(p);ctx.fillStyle='#0a0a1f';ctx.fillRect(0,0,W,H);
+for(const[i,j]of edges){const axis=Math.log2(i^j),col=mode&&axis===3?'#ff4469':['#3fffe2','#be86ff','#ffa25d','#86beff'][axis];ctx.beginPath();ctx.moveTo(W/2+pts[i][0]*k,H/2+pts[i][1]*k);ctx.lineTo(W/2+pts[j][0]*k,H/2+pts[j][1]*k);ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=16;ctx.lineWidth=axis===3?2.1:1.4;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font='13px monospace';ctx.fillStyle=mode?'#ff9e79':'#9effef';ctx.fillText(mode?'RESTART DISAGREEMENT → HOLD':'SIGNED CHECKPOINT ≠ INDEPENDENT CUSTODY',14,H-19);t++;requestAnimationFrame(frame)}frame();
+</script></body></html>
