@@ -39,7 +39,7 @@ def selected():
         "rust/sapphon-audit/tests/audit.rs",
         "rust/sapphon-audit/tests/phase_x.rs",
     })
-    if len(names)!=49:raise RuntimeError(f"UNEXPECTED_PHASE_X_SOURCE_COUNT:{len(names)}")
+    if len(names)!=48:raise RuntimeError(f"UNEXPECTED_PHASE_X_SOURCE_COUNT:{len(names)}")
     for name in names:
         if not (ROOT/name).is_file():raise RuntimeError(f"MISSING_PHASE_X_SOURCE:{name}")
     return sorted(names)
