@@ -41,7 +41,7 @@ try{
  reject("delayed publisher response expires",()=>consume(dir,input(c,p1,response(c),130)),"FRESHNESS_EXPIRED");
  reject("wrong verifier ID cannot reuse response",()=>consume(dir,input(c,p1,{...response(c),payload:{...response(c).payload,verifier_id:"wrong-verifier"}})),"RESPONSE_BINDING");
  reject("wrong nonce is denied",()=>consume(dir,input(c,p1,{...response(c),payload:{...response(c).payload,nonce:"f".repeat(64)}})),"RESPONSE_BINDING");
- reject("forged response signer rejected",()=>consume(dir,input(c,p1,response(c,p1,rogue.privateKey))),"RESPONSE_SIGNATURE");
+ reject("forged response signer rejected",()=>{const legitimate=response(c);const forged={...legitimate,signature:crypto.sign(null,fresh.responseBytes(legitimate.payload),rogue.privateKey).toString("base64")};consume(dir,input(c,p1,forged));},"RESPONSE_SIGNATURE");
  reject("changed issued tick in response rejected",()=>consume(dir,input(c,p1,{...response(c),payload:{...response(c).payload,issued_tick:200}})),"RESPONSE_BINDING");
  reject("changed snapshot digest in response rejected",()=>consume(dir,input(c,p2,response(c,p1))),"SNAPSHOT_BINDING");
  reject("revoked signed snapshot publisher denied by current registry",()=>consume(dir,input(c,p1,response(c),101,true,{[publisher]:{...pins(old.publicKey)[publisher],revoked:true}})),"PUBLISHER_REVOKED");
@@ -78,7 +78,7 @@ try{
   const changed={...c,verifier_id:"another-verifier"};consume(dir,input(changed,p1,response(changed)));
  },"CHALLENGE_CONFLICT");
  reject("mismatched response signature cannot be excused by fixture network delivery",()=>{
-  consume(dir,input(c,p1,{...response(c),signature:response(c,p1,rogue.privateKey).signature}));
+  const legitimate=response(c);consume(dir,input(c,p1,{...legitimate,signature:crypto.sign(null,fresh.responseBytes(legitimate.payload),rogue.privateKey).toString("base64")}));
  },"RESPONSE_SIGNATURE");
  test("failed challenge remains pending and is recoverable",()=>assert.equal(fresh.inspect(dir).challenges[0].status,"PENDING"));
  test("correct response after transient failure can be consumed once",()=>assert.equal(consume(dir,input(c)).nonce_consumed,true));
