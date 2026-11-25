@@ -1,0 +1,73 @@
+name: SAPPHON-130 Rust Cross-Process Contention & Crash Faults
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-contention/**'
+      - 'docs/sapphon/phase-xi/130/**'
+      - '.github/workflows/sapphon-130-contention.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-130-process-faults
+  cancel-in-progress: false
+jobs:
+  contention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Format new Rust process crate
+        run: cargo fmt --manifest-path rust/sapphon-contention/Cargo.toml --all
+      - name: Execute multi-process Rust crash and journal contention matrix
+        run: cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+      - name: Preserve SAPPHON-129 and Rust Phase X regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify Rust documentation
+        run: cargo doc --manifest-path rust/sapphon-contention/Cargo.toml --no-deps
+      - name: Check neon viewer and physical-authority HOLD
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-xi/130/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const text of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1',
+            'PHYSICAL CLOCK + CUSTODY HOLD','Phase XI · 2/8','KILLED LOCK HOLDER'])
+            assert(h.includes(text),'Missing '+text);
+          console.log('PASS SAPPHON-130 neon viewer syntax and authority HOLD');
+          NODE
+      - name: Preserve exact hashes from five immutable earlier phases
+        run: |
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          names=['docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json']
+          n=0
+          for manifest in names:
+            records=json.loads(pathlib.Path(manifest).read_text())['files']
+            for name,meta in records.items():
+              blob=pathlib.Path(name).read_bytes()
+              assert hashlib.sha256(blob).hexdigest()==meta['sha256'] and len(blob)==meta['bytes'],name
+            n+=len(records)
+            print('PASS',manifest,len(records),'frozen hashes')
+          assert n==188,n
+          print('PASS 188/188 frozen sources')
+          PY
+      - name: Commit tested canonical Rust formatting
+        run: |
+          git add rust/sapphon-contention/src rust/sapphon-contention/tests
+          if git diff --cached --quiet; then
+            echo 'Rust formatting already canonical'
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-130: verified canonical Rust process fixture formatting'
+            git push origin HEAD:main
+          fi
