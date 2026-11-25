@@ -1,0 +1,61 @@
+name: SAPPHON-151 Blind Cross-Custody Challenge
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-151-blind.yml'
+      - 'docs/sapphon/phase-xiii/151/**'
+permissions:
+  contents: read
+jobs:
+  blinded-challenge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Rust blinded challenge and inherited liveness tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Run recovery contention journal audit regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historical source freezes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          files=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in files:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expected['bytes'],path
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 immutable hashes')
+          PY
+      - name: Enforce HOLD and ancestry controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/blind151.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+              'independent_custody_proven:false',
+              'recovery_authorized:false',
+              'replacement_key_accepted:false',
+              'lock_cleared:false',
+              'SHARED_ANCESTRY','COPIED_RECEIPT_ANCESTRY',
+              'CROSS_PROVIDER_CONFLICT','ASYNC_SEQUENCE'):
+              assert token in s,token
+          print('PASS source controls')
+          PY
+      - name: Build Rust documentation
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
