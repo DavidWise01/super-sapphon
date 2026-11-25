@@ -12,7 +12,7 @@ const hash=x=>crypto.createHash("sha256").update(x).digest("hex");
 const exact=(o,k)=>!!o&&typeof o==="object"&&!Array.isArray(o)&&Object.keys(o).sort().join("|")===k.slice().sort().join("|");
 const ROLES=["ISSUER","OPERATOR"],SCHEMA="sapphon-124-revocation-v1";
 const proofBytes=(role,challengeHash,generation)=>Buffer.from(JSON.stringify(["sapphon-124-response-v1",role,challengeHash,generation]));
-const pem=k=>crypto.createPublicKey(k).export({type:"spki",format:"pem"}).toString();
+const pem=k=>(k.type==="public"?k:crypto.createPublicKey(k)).export({type:"spki",format:"pem"}).toString();
 function signedForTest(challenge,role,generation,key){
  if(!ROLES.includes(role)||!Number.isSafeInteger(generation)||generation<1)fail("RESPONSE_FIELDS");
  const challenge_sha256=hash(challengeBytes(challenge));
