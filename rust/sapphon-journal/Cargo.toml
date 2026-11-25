@@ -1,0 +1,15 @@
+[package]
+name = "sapphon-journal"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "SAPPHON-129 crash-atomic synthetic signed-publication journal"
+license = "MIT"
+
+[dependencies]
+sapphon-audit = { path = "../sapphon-audit" }
+serde_json = "1.0"
+
+[dev-dependencies]
+ed25519-dalek = "2.2"
+base64 = "0.22"
