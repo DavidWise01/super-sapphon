@@ -5,6 +5,7 @@ use crate::{registry137, Error};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 
 pub const AUTHORITY: &str = "HOLD";
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -84,7 +85,7 @@ pub fn inspect_restart(
     let local=registry137::verify(transcript,expected_local_sequence,expected_local_head)?;
     // Need to prove anchor is a retained prefix, not infer it from sequence.
     let mut selected_head=registry137::genesis_head();
-    if anchor.sequence>0 {
+    if anchor.sequence>0 && local.seq>=anchor.sequence {
         let mut lines=transcript.split_inclusive(|b|*b==b'\n');
         for _ in 0..anchor.sequence {
             let line=lines.next().ok_or(Error("ANCHOR_PREFIX_UNKNOWN"))?;
@@ -95,14 +96,16 @@ pub fn inspect_restart(
                 serde_json::to_vec(&e).map_err(|_|Error("ANCHOR_ENCODING"))?));
         }
     }
-    let state=if local.seq==anchor.sequence {
+    let state=if local.seq<anchor.sequence {
+        RecoveryState::LocalBehindAnchor
+    } else if local.seq==anchor.sequence {
         if local.head==anchor.head_sha256 {RecoveryState::MatchesSuppliedAnchor}
         else {RecoveryState::LocalConflictsWithAnchor}
     } else if local.seq>anchor.sequence {
         if selected_head==anchor.head_sha256 {RecoveryState::LocalAheadOfAnchor}
         else {RecoveryState::LocalConflictsWithAnchor}
     } else {
-        RecoveryState::LocalBehindAnchor
+        RecoveryState::LocalConflictsWithAnchor
     };
     Ok(Assessment {
         state,signed_anchor_verified:true,provider_independence_proven:false,
