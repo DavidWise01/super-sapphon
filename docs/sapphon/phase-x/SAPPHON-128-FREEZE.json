@@ -1,0 +1,225 @@
+{
+  "external_custody": "HOLD",
+  "files": {
+    ".github/workflows/sapphon-121-custodian.yml": {
+      "bytes": 2053,
+      "sha256": "0439e5044682ec0b5cb3b887c398df9a507fdff0fcc11418c4889a5786376cb5"
+    },
+    ".github/workflows/sapphon-122-origin.yml": {
+      "bytes": 2036,
+      "sha256": "3d884667041ba1acee45fb320ff8ceab2cf47578196a99bb67095d85c9b92721"
+    },
+    ".github/workflows/sapphon-123-challenge.yml": {
+      "bytes": 2049,
+      "sha256": "a496609c556993586c991ab10934d1edf1128592492911c2a39170bf7f5b4a9e"
+    },
+    ".github/workflows/sapphon-124-revocation.yml": {
+      "bytes": 2074,
+      "sha256": "07fce2fdbceb6e4df10565aa6c1702b9bd55b93d4a142e7ed1117608b6f15b54"
+    },
+    ".github/workflows/sapphon-125-replica.yml": {
+      "bytes": 2056,
+      "sha256": "699db3da0aa178994493648aa47e7ff685ffda36ad1b4ffadad9b1bd5bbf3eca"
+    },
+    ".github/workflows/sapphon-126-freshness.yml": {
+      "bytes": 2041,
+      "sha256": "4d9d9c0c665dd6f597485191f7181e95c9e9f9fbc694e4bb2f30e7f283c321ef"
+    },
+    ".github/workflows/sapphon-127-equivocation.yml": {
+      "bytes": 2082,
+      "sha256": "d592543b91d26b9b0420d8be56a69ecfcb6cee746d5e86b1f69e395a671a4209"
+    },
+    ".github/workflows/sapphon-128-freeze.yml": {
+      "bytes": 2647,
+      "sha256": "e85d6a15cd5b54d42285e6908298e56f6f18268f0cb9bf93add755a65eb3f4cf"
+    },
+    ".github/workflows/sapphon-rust-audit.yml": {
+      "bytes": 1554,
+      "sha256": "d2498ae644b460b53bd5d4d4c4b4ba678e01dc1093b974f3e5be83b93fbd6022"
+    },
+    "docs/sapphon/phase-x/121/SAPPHON-121-REPORT.md": {
+      "bytes": 3155,
+      "sha256": "0463d0a7f234d543027f01541d27c402d8904f337df66e1451e13f92b28faead"
+    },
+    "docs/sapphon/phase-x/121/index.html": {
+      "bytes": 6682,
+      "sha256": "7b48854108c0c2c05c1383ed52095011d7bd497590055e63a2fe043eb32e26ca"
+    },
+    "docs/sapphon/phase-x/122/SAPPHON-122-REPORT.md": {
+      "bytes": 3147,
+      "sha256": "8906d06cf70975ff1c85c350b781974f2605ede862b8efb79bd52abc21591d31"
+    },
+    "docs/sapphon/phase-x/122/index.html": {
+      "bytes": 6761,
+      "sha256": "e218f9bbe3473aae14afbb553b37a79991684e18e953a7458e51aab3ca529047"
+    },
+    "docs/sapphon/phase-x/123/SAPPHON-123-REPORT.md": {
+      "bytes": 3278,
+      "sha256": "0a3f1c18ca81cceda343eb475c9d4929ac1a99f81c7fbd63f8246aff133f8f1c"
+    },
+    "docs/sapphon/phase-x/123/index.html": {
+      "bytes": 6698,
+      "sha256": "b044b0f07e18fc4c6a0115cab02cb96bcc339a5a3780436607e20ba469c71d14"
+    },
+    "docs/sapphon/phase-x/124/SAPPHON-124-REPORT.md": {
+      "bytes": 3628,
+      "sha256": "69a69f53ff05e8c807b0e65c9df11dc5f156abd2303e651b08b0d53f84824eee"
+    },
+    "docs/sapphon/phase-x/124/index.html": {
+      "bytes": 6730,
+      "sha256": "0bad8f9c243b0c31a18d78501f309337d2049e4b972b05d60baaf0289de145a1"
+    },
+    "docs/sapphon/phase-x/125/SAPPHON-125-REPORT.md": {
+      "bytes": 3373,
+      "sha256": "5a3e58d77a9ac56ae99b660a60d89b5e1eb563f724dbcd0ec497b46bb8b38521"
+    },
+    "docs/sapphon/phase-x/125/index.html": {
+      "bytes": 6777,
+      "sha256": "80f45258c0b35852f6153206613c87d6ef17742e3038201faf019c4545379a81"
+    },
+    "docs/sapphon/phase-x/126/SAPPHON-126-REPORT.md": {
+      "bytes": 3653,
+      "sha256": "dfd3c64d13f81e7cf67a5ce443ec7540604853ccb76e00f3be54413145e6c5dd"
+    },
+    "docs/sapphon/phase-x/126/index.html": {
+      "bytes": 6743,
+      "sha256": "7febfaf732c2db5991c62d456113523b1ff6a27e5462a6bf97d83a7a10606dbb"
+    },
+    "docs/sapphon/phase-x/127/SAPPHON-127-REPORT.md": {
+      "bytes": 3578,
+      "sha256": "470a965e5748d2e446a4e0a927c9c6e016a25504aca6da09ceeddcd62b0e64d7"
+    },
+    "docs/sapphon/phase-x/127/index.html": {
+      "bytes": 6724,
+      "sha256": "566a7d299f612f2526b566032bc5828b48907e0369aba72402ec4faea5333f86"
+    },
+    "docs/sapphon/phase-x/128/SAPPHON-128-REPORT.md": {
+      "bytes": 3118,
+      "sha256": "59028c02edfd490363f9fc4746fe74d367e43a867f50e6687cc9dd4416aa6337"
+    },
+    "docs/sapphon/phase-x/128/index.html": {
+      "bytes": 6713,
+      "sha256": "de1123c8bd2873c8e54c9539ab7a09565a7b19d4133b339303b9c40b3efbab10"
+    },
+    "rust/sapphon-audit/Cargo.toml": {
+      "bytes": 418,
+      "sha256": "2c87764893c7e4423e97466c56a52fae1d0ebe8dede06d343f411279c828be23"
+    },
+    "rust/sapphon-audit/README.md": {
+      "bytes": 2723,
+      "sha256": "40378052958349950072b729b37e518ee11fbf93475ab95fed95ddb354f8ebd7"
+    },
+    "rust/sapphon-audit/src/lib.rs": {
+      "bytes": 14201,
+      "sha256": "f2f936fa235d6dd1818ee286b1d41162435701c44e1b263ad0bf5d62ab8cedfc"
+    },
+    "rust/sapphon-audit/src/main.rs": {
+      "bytes": 1388,
+      "sha256": "39cab0a4a5dddd5ec2b484a09213af1e3af28bd4cde5213a088e27b9eb11d10b"
+    },
+    "rust/sapphon-audit/src/phase_x.rs": {
+      "bytes": 4649,
+      "sha256": "efc507d698a21952f505622b42bf6439081b31ed971d9771998d34ec923ed041"
+    },
+    "rust/sapphon-audit/tests/audit.rs": {
+      "bytes": 7847,
+      "sha256": "e2aa11bcfed9bb0118a941023edd2f0b0b675e68236bca3749819e9cdfae9f8d"
+    },
+    "rust/sapphon-audit/tests/phase_x.rs": {
+      "bytes": 8119,
+      "sha256": "3d0d3b6866532bafdc664fa1a8a14ffbc9afc090fdb2d4e5f1b91b07362917a5"
+    },
+    "tools/sapphon_121_custodian.cjs": {
+      "bytes": 5519,
+      "sha256": "838e63500d0ca6f330de78905d298a246de37bc14516f357faf52076264b0114"
+    },
+    "tools/sapphon_122_origin.cjs": {
+      "bytes": 5278,
+      "sha256": "3e06eff268ce98f3dad6c266dfff140e7fe224f14dfd473525de1869ad3fcdeb"
+    },
+    "tools/sapphon_123_challenge.cjs": {
+      "bytes": 6859,
+      "sha256": "3f699bf64fc355c2cc9ae45f819bfb9f95b74dcf0571dec080f5eaa7bc9531cf"
+    },
+    "tools/sapphon_124_revocation.cjs": {
+      "bytes": 9050,
+      "sha256": "f917a2e1e56454cf4a6d456ced0227425178d4caf819377f0481ff1c895b461d"
+    },
+    "tools/sapphon_125_replica.cjs": {
+      "bytes": 7106,
+      "sha256": "19e8159cb5e4e251e87d52fd99b1b6577182eabfa838c3cb3aa3866c388bdd4b"
+    },
+    "tools/sapphon_126_freshness.cjs": {
+      "bytes": 8643,
+      "sha256": "48979ba6262eb6b0a4fcb01e260bc4a1f319debf6db34c8bf3ee167a8d5b93ec"
+    },
+    "tools/sapphon_127_equivocation.cjs": {
+      "bytes": 7078,
+      "sha256": "47b1b2c9c1db1a92ba31b6add5f95353d561cea65196f1b00b9e686cf3c5e650"
+    },
+    "tools/sapphon_128_freeze.py": {
+      "bytes": 3164,
+      "sha256": "ca129385f91280b687635c019277c9273067211490a359c4d614da141892a7b1"
+    },
+    "tools/test_sapphon_121_custodian.cjs": {
+      "bytes": 7543,
+      "sha256": "fc85f599960e72f467abe7ff7696827b675ecaf21acb359be64ed8f6c8d41283"
+    },
+    "tools/test_sapphon_122_origin.cjs": {
+      "bytes": 6853,
+      "sha256": "c390094450374fababf6c3ee0c945e79bcedeac97c8537b61a9dc182ab968367"
+    },
+    "tools/test_sapphon_123_challenge.cjs": {
+      "bytes": 7580,
+      "sha256": "8b9a9242b0a86dc9461b374aad1e3cc3895d81a710c50f6cfece5694cf14ed61"
+    },
+    "tools/test_sapphon_124_revocation.cjs": {
+      "bytes": 9684,
+      "sha256": "6401340e1c834625a759613196dba8f819610b15417730066a9c8e06dff6a7ae"
+    },
+    "tools/test_sapphon_125_replica.cjs": {
+      "bytes": 8453,
+      "sha256": "1295b694aed0cc98aae940bf4cf9190dfcdfaff9c8aace90cf416c3eae314120"
+    },
+    "tools/test_sapphon_126_freshness.cjs": {
+      "bytes": 9493,
+      "sha256": "3be292ce7dfe95ef36334cccab9bca8facfd603d13671235ea499aa6cf7ab4aa"
+    },
+    "tools/test_sapphon_127_equivocation.cjs": {
+      "bytes": 7357,
+      "sha256": "099d3bd526c3c4e3856619f01324454acdac25ba23910101335af870bd2ae961"
+    },
+    "tools/test_sapphon_128_browser.cjs": {
+      "bytes": 2456,
+      "sha256": "f957b8d76b853fd4fdbdeacb56cfb573e4e1f1e94ab1f222e577fbd09fa2e3b6"
+    }
+  },
+  "global_finality": "HOLD",
+  "parent_freezes": [
+    {
+      "file_count": 11,
+      "manifest": "docs/sapphon/SAPPHON-096-FREEZE.json",
+      "sha256": "1230c53be9400599cdb8f15aab64461d1555c2a6ddc90bc0e46f10e1b12f0add"
+    },
+    {
+      "file_count": 45,
+      "manifest": "docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json",
+      "sha256": "c3c07d9b720c0db8905a20672d3e6d5c4a36361ae59e38a9cec986eb927c0822"
+    },
+    {
+      "file_count": 42,
+      "manifest": "docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json",
+      "sha256": "5ef7249cab5cbb42da2afb373045dc58c37c41302e46fe51cafc5127e0955f62"
+    },
+    {
+      "file_count": 42,
+      "manifest": "docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json",
+      "sha256": "1d010ea194c5f14c7713fa59d1752923c3530b408a9dce1e2ab4fee49bbc0499"
+    }
+  ],
+  "phase": "X",
+  "primary_verifier": "rust-sapphon-audit",
+  "real_utc": "HOLD",
+  "schema": "sapphon-128-phase-x-rust-freeze-v1",
+  "stage": "8/8"
+}
