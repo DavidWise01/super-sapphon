@@ -1,0 +1,57 @@
+name: SAPPHON-143 Blind Ancestry and Conflict Quarantine
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-143-quarantine.yml'
+      - 'docs/sapphon/phase-xii/143/**'
+permissions:
+  contents: read
+jobs:
+  quarantine:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run quarantine and inherited Rust tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check inherited recovery and journal regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Check 188 historical frozen hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          count=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expected['bytes'],path
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],path
+                  count+=1
+          assert count==188,count
+          print('PASS 188 frozen hashes')
+          PY
+      - name: Verify quarantine cannot claim cryptographic or recovery authority
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('rust/sapphon-liveness/src/quarantine143.rs').read_text()
+          for required in ('pub const AUTHORITY: &str = "HOLD"',
+                           'cryptographic_authentication:"NOT_PERFORMED"',
+                           'independent_custody:false',
+                           'lock_cleared:false','QUARANTINE_ANCHOR',
+                           'BATCH_EQUIVOCATION','DECLARED_SHARED_ANCESTRY'):
+              assert required in src,required
+          print('PASS source HOLD only')
+          PY
