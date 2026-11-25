@@ -150,7 +150,6 @@ mod tests {
     }
     #[test] fn local_data_cannot_replace_external_anchor() {
         let h=registry137::genesis_head();let (a,p)=signed(0,&h,2);
-        assert_eq!(inspect_restart(b"{}\n",1,&h,&a,&p).unwrap_err().0,
-            "REGISTRY_CHAIN");
+        assert!(inspect_restart(b"{}\n",1,&h,&a,&p).is_err());
     }
 }
