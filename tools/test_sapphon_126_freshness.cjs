@@ -59,7 +59,7 @@ try{
  dir=create();c=challenge();fresh.issue(dir,c,{tick:100});
  test("publisher rotation updates pinned public key and generation",()=>assert.equal(fresh.rotate(dir,{newPublicKey:rot.publicKey,tick:101}).generation,2));
  reject("pre-rotation response is fenced even with previously valid signature",()=>consume(dir,input(c,p1,response(c),102)),"PUBLISHER_ROTATION_FENCE");
- const freshResponse=response(c,p1,rot.privateKey,2);
+ const oldProof=response(c,p1);const rotatedPayload={...oldProof.payload,publisher_key_generation:2};const freshResponse={payload:rotatedPayload,signature:crypto.sign(null,fresh.responseBytes(rotatedPayload),rot.privateKey).toString("base64")};
  reject("rotated signing key cannot validate old snapshot signed by revoked fixture key",()=>consume(dir,input(c,p1,freshResponse,102,true,pins(rot.publicKey))),"SNAPSHOT_SIGNATURE");
  const newP1=snapshot(1,rot.privateKey);
  test("rotated publisher response with current snapshot can clear synthetic challenge",()=>{
