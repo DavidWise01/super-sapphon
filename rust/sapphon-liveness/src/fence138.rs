@@ -4,7 +4,7 @@
 #[cfg(target_os = "linux")]
 mod linux {
     use crate::{registry137::{self, Snapshot}, Error};
-    use std::{fs::{self, File, OpenOptions}, io::Read,
+    use std::{fs::{self, File, OpenOptions},
         os::{fd::AsRawFd, unix::fs::{MetadataExt, OpenOptionsExt}},
         path::Path};
     pub const AUTHORITY: &str = "HOLD";
@@ -46,7 +46,6 @@ mod linux {
                 return Err(Error("FENCE_UNSAFE_FILE"));
             }
             let mut bytes = Vec::new();
-            let mut handle = &self.file;
             // File::try_clone shares the offset: use positional read instead.
             use std::os::unix::fs::FileExt;
             let mut offset = 0u64;
@@ -74,7 +73,6 @@ mod linux {
     mod tests {
         use super::*;
         use std::os::unix::fs::symlink;
-        use std::io::Write;
         fn temp(name: &str) -> std::path::PathBuf {
             std::env::temp_dir().join(format!("sapphon138-{name}-{}",std::process::id()))
         }
