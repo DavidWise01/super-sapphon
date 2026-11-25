@@ -9,6 +9,7 @@ use std::{
     path::Path,
 };
 pub const AUTHORITY: &str = "HOLD";
+pub mod pinned;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
