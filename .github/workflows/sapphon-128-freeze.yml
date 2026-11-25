@@ -1,0 +1,59 @@
+name: SAPPHON-128 Rust Phase X Final Chromium Acceptance & Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-audit/**'
+      - 'tools/sapphon_128_freeze.py'
+      - 'tools/test_sapphon_128_browser.cjs'
+      - 'docs/sapphon/phase-x/128/**'
+      - '.github/workflows/sapphon-128-freeze.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-phase-x-final-freeze
+  cancel-in-progress: false
+jobs:
+  final:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Format Rust source for verified immutable freeze
+        run: cargo fmt --all --manifest-path rust/sapphon-audit/Cargo.toml
+      - name: Run Rust-primary signed fork and cross-generation audits
+        run: cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify Rust documentation and public CLI
+        run: cargo doc --manifest-path rust/sapphon-audit/Cargo.toml --no-deps
+      - name: Preserve Phase X legacy regression line without changing frozen files
+        run: |
+          node tools/test_sapphon_127_equivocation.cjs
+          node tools/test_sapphon_126_freshness.cjs
+          node tools/test_sapphon_125_replica.cjs
+          node tools/test_sapphon_124_revocation.cjs
+          node tools/test_sapphon_123_challenge.cjs
+          node tools/test_sapphon_122_origin.cjs
+          node tools/test_sapphon_121_custodian.cjs
+      - name: Install Chromium for real interactive viewer acceptance
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Run final neon laboratory acceptance in real Chromium
+        run: |
+          python3 -m http.server 8765 --bind 127.0.0.1 >/tmp/sapphon128-http.log 2>&1 &
+          sleep 2
+          node tools/test_sapphon_128_browser.cjs
+      - name: Generate and verify Phase X SHA-256 freeze and 140 inherited frozen files
+        run: python3 tools/sapphon_128_freeze.py
+      - name: Commit final frozen Phase X manifest and verified Rust formatting
+        run: |
+          git add docs/sapphon/phase-x/SAPPHON-128-FREEZE.json rust/sapphon-audit/src rust/sapphon-audit/tests
+          if git diff --cached --quiet; then
+            echo 'Phase X software freeze already matches verified inventory'
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-128: freeze verified Rust Phase X software baseline'
+            git push origin HEAD:main
+          fi
