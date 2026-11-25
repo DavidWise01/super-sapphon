@@ -200,4 +200,27 @@ mod tests{
         assert_eq!(read_intent(&altered,&digest).unwrap_err().0,"FAILOVER_DIGEST");
         std::fs::remove_file(&p).unwrap();
     }
+    #[test]fn conflicting_heads_preserved_as_disagreement(){
+        let(a,ap)=anchor(1,"custodian-one",&"a".repeat(64));
+        let(b,bp)=anchor(2,"custodian-two",&"b".repeat(64));
+        let r=inspect_failover(Some((&a,&ap,ProviderState::Observed)),
+            Some((&b,&bp,ProviderState::Observed))).unwrap();
+        assert_eq!(r.finding,FailoverFinding::ConflictingHeads);
+        assert_eq!(r.decision,"HOLD");
+    }
+    #[test]fn unavailable_revoked_provider_cannot_be_substituted(){
+        let(a,ap)=anchor(1,"custodian-one",&"a".repeat(64));
+        let(b,bp)=anchor(2,"custodian-two",&"a".repeat(64));
+        let r=inspect_failover(Some((&a,&ap,ProviderState::Observed)),
+            Some((&b,&bp,ProviderState::Revoked))).unwrap();
+        assert_eq!(r.finding,FailoverFinding::ProviderRevoked);
+        assert!(!r.replacement_key_accepted);
+    }
+    #[test]fn missing_rotation_signature_fails_continuity(){
+        let mut i=intent();
+        i.rotation.new_signature_base64=STANDARD.encode([0u8;64]);
+        assert_eq!(inspect_intent(&i,&"a".repeat(64),&prior(),false)
+            .unwrap_err().0,"ROTATION_SIGNATURE");
+    }
+
 }
