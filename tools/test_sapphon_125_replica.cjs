@@ -48,7 +48,7 @@ try{
  reject("stale signed high-water proof cannot authorize newer replica",()=>gate(a,p1,"b"),"UNTRUSTED_RETROGRADE_HIGH_WATER");
  reject("same generation conflicting signed state cannot overwrite publisher history",()=>e.update(a,p2op,pins),"GENERATION_FORK");
  reject("same generation conflicting connected high water cannot authorize",()=>gate(a,p2op,"b"),"HIGH_WATER_SNAPSHOT_CONFLICT");
- reject("generation skip refused despite signature",()=>e.update(a,p3,pins),"SKIPPED_HIGH_WATER_GENERATION");
+ reject("generation skip refused despite signature",()=>e.update(a,e.signForTest({...p3.payload,generation:4},issuer.privateKey),pins),"SKIPPED_HIGH_WATER_GENERATION");
  const f=create();e.update(f,p1,pins);
  const fork=e.signForTest({...policy,generation:2,previous_digest:"f".repeat(64)},issuer.privateKey);
  reject("wrong predecessor chain cannot update current replica",()=>e.update(f,fork,pins),"BROKEN_PREDECESSOR");
@@ -61,8 +61,7 @@ try{
  reject("operator-only revocation blocks authority after propagation",()=>gate(f,badRevoke,"c",{issuer_generation:2}),"CURRENT_ROLE_REVOKED");
  const resurrect=e.signForTest({...badRevoke.payload,generation:4,operator_generation:2,operator_revoked:false,previous_digest:digest(e.bytes(badRevoke.payload))},issuer.privateKey);
  reject("revoked operator cannot be resurrected by newer signed snapshot",()=>e.update(f,resurrect,pins),"REVOCATION_RESURRECTION");
- const rollback=e.signForTest({...staleGeneration.payload,generation:3,issuer_generation:0,previous_digest:digest(e.bytes(staleGeneration.payload))},issuer.privateKey);
- reject("invalid zero generation cannot be signed",()=>e.bytes(rollback.payload),"SNAPSHOT_FIELDS");
+ reject("invalid zero credential generation cannot be signed",()=>e.bytes({...staleGeneration.payload,generation:3,issuer_generation:0,previous_digest:digest(e.bytes(staleGeneration.payload))}),"SNAPSHOT_FIELDS");
  const wrongRoot=e.signForTest({...policy,control_root:"unrelated-source-root"},issuer.privateKey);
  reject("changing control root cannot masquerade as original publisher",()=>e.update(a,wrongRoot,pins),"PUBLISHER_IDENTITY");
  reject("untrusted authority field in snapshot schema forbidden",()=>e.bytes({...policy,utc_valid:true}),"SNAPSHOT_FIELDS");
