@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-144 · Phase XII Freeze Adjudicator</title>
+<style>
+:root{color-scheme:dark;--teal:#38ffe1;--orange:#ff9858;--purple:#b587ff}*{box-sizing:border-box}
+body{margin:0;color:#f2edff;background:radial-gradient(ellipse at 51% 27%,#2b1a49,#090918 72%);font:15px system-ui,sans-serif}
+header{padding:22px 5vw;border-bottom:1px solid #695293}h1{margin:6px 0;font-size:clamp(22px,3vw,38px);text-shadow:0 0 20px #a975ff99}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1450px;margin:18px auto;padding:0 16px}
+.pane{background:#15112bdd;border:1px solid #70599c;border-radius:16px;box-shadow:0 0 28px #57278344;overflow:hidden}
+canvas{width:100%;height:470px;display:block}.right{padding:20px}.metric{padding:13px;margin:9px 0;background:#14102d;border:1px solid #50406e;border-radius:8px}
+strong{color:var(--teal)}.hold{font-weight:900;font-size:32px;color:var(--orange);text-shadow:0 0 18px #ff6d2e}
+button{background:#31224d;border:1px solid #a17bd9;color:#fff;padding:10px 12px;border-radius:8px;cursor:pointer;margin:5px 5px 5px 0}
+.muted,small{color:#ada3c6}footer{text-align:center;padding:23px;color:#c1b2d9}code{color:#aaffeb}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:340px}}
+</style></head><body>
+<header><small>PHASE XII · 8 OF 8 · FINAL DESIGN BOUND</small><h1>SAPPHON-144 · Evidence Freeze Adjudication</h1>
+<div class="muted">4D tesseract shadow · 3 pumps · 4 registers · one output · operational HOLD</div></header>
+<main><section class="pane"><canvas id="field" aria-label="Animated neon 4D tesseract shadow showing a conflict fork"></canvas></section>
+<section class="pane right">
+<div class="metric">Phase XII design <strong>8 / 8 COMPLETE</strong></div>
+<div class="metric">Clean evidence digest <strong>REQUIRES EXTERNAL ANCHOR</strong></div>
+<div class="metric">Quarantine contradictions <strong id="conflicts">NO CONFLICT IN DEMO</strong></div>
+<div class="metric">188 inherited source freezes <strong>CI VERIFICATION REQUIRED</strong></div>
+<div class="metric">Independent custody <strong>NOT AUTHENTICATED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="fork">Simulate contradictory evidence</button><button id="reset">Reset</button>
+<p class="muted" id="status" role="status">DESIGN COMPLETE · QUALIFICATION HOLD</p>
+<small>The animation demonstrates phase logic only. It does not verify real signatures, CI tests, independently held checkpoints, or operational authorization.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";
+const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let angle=0,conflict=false;
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function set(value){conflict=value;document.getElementById("conflicts").textContent=conflict?"CONFLICT PRESERVED / HOLD":"NO CONFLICT IN DEMO";document.getElementById("status").textContent=conflict?"EVIDENCE_CONFLICT_HOLD":"DESIGN COMPLETE · QUALIFICATION HOLD"}
+document.getElementById("fork").onclick=()=>set(true);document.getElementById("reset").onclick=()=>set(false);
+function project(v){let[x,y,z,w]=v,c=Math.cos(angle),s=Math.sin(angle);[x,w]=[x*c-w*s,x*s+w*c];let b=angle*.59;[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=3/(4-w),g=2.3/(4.6-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);canvas.width=Math.max(2,Math.round(r.width*d));canvas.height=Math.max(2,Math.round(r.height*d));ctx.setTransform(d,0,0,d,0,0);const W=r.width,H=r.height,k=Math.min(W,H)*.28,p=vertices.map(project);ctx.fillStyle="#0a091d";ctx.fillRect(0,0,W,H);
+for(const[i,j]of edges){const axis=Math.log2(i^j),color=conflict&&axis===3?"#ff386a":["#39ffe5","#b58aff","#ff9d65","#91bfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.lineWidth=axis===3?2.3:1.4;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=18;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="13px monospace";ctx.fillStyle=conflict?"#ff718a":"#9cffe5";ctx.fillText(conflict?"CONTRADICTION PRESERVED → FREEZE BLOCKED":"DESIGN 100% · OPERATIONAL HOLD",15,H-20);angle+=.006;requestAnimationFrame(frame)}frame();
+</script></body></html>
