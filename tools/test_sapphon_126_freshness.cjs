@@ -80,7 +80,6 @@ try{
  reject("mismatched response signature cannot be excused by fixture network delivery",()=>{
   consume(dir,input(c,p1,{...response(c),signature:response(c,p1,rogue.privateKey).signature}));
  },"RESPONSE_SIGNATURE");
- reject("failed signature does not consume nonce",()=>assert.equal(fresh.inspect(dir).challenges[0].status,"CONSUMED"),"ERR_ASSERTION");
  test("failed challenge remains pending and is recoverable",()=>assert.equal(fresh.inspect(dir).challenges[0].status,"PENDING"));
  test("correct response after transient failure can be consumed once",()=>assert.equal(consume(dir,input(c)).nonce_consumed,true));
  reject("missing verifier store fails closed",()=>fresh.inspect(path.join(root,"missing")),"VERIFIER_MISSING");
