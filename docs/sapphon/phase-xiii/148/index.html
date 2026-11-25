@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-148 · Interrupted Rotation and Failover</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 20%,#31204b,#090a18 75%);color:#f1ebff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #775899}h1{font-size:clamp(24px,3vw,40px);margin:7px 0;text-shadow:0 0 20px #ac72faab}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1470px;margin:20px auto;padding:0 18px}
+.panel{border:1px solid #69528f;border-radius:16px;background:#16122ccc;box-shadow:0 0 31px #62408b44;overflow:hidden}
+canvas{width:100%;height:470px;display:block}.side{padding:21px}.metric{padding:12px;background:#16112d;border:1px solid #53416e;margin:10px 0;border-radius:9px}
+strong{color:#47ffe5}.hold{font-size:31px;color:#ff9c62;text-shadow:0 0 17px #ff7b3d88;font-weight:900}
+button{background:#392452;border:1px solid #b38bdc;padding:10px 12px;border-radius:8px;color:white;cursor:pointer;margin:4px}
+.muted,small{color:#bdb2d1}footer{text-align:center;color:#bcafcf;padding:24px}code{color:#b0ffeb}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:336px}}
+</style></head><body>
+<header><small>PHASE XIII · TURN 4 OF 8 · 50% DESIGN · SIMULATED EVIDENCE</small>
+<h1>SAPPHON-148 · Interrupted Rotation &amp; Provider Failover</h1>
+<div class="muted">4D shadow tesseract · three pumps · four registers · one output · authority HOLD</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Rotating four-dimensional tesseract visualization of checkpoint provider interruption and failover"></canvas></section>
+<section class="panel side">
+<div class="metric">Rotation intent <strong>CREATE-ONLY · FSYNC</strong></div>
+<div class="metric">Key continuity <strong id="rotation">PENDING CUSTODY</strong></div>
+<div class="metric">Provider state <strong id="provider">BOTH PRESENT</strong></div>
+<div class="metric">Replacement key <strong>NOT ACCEPTED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="normal">Both present</button><button id="delay">Delayed provider</button><button id="lost">Missing custodian</button><button id="interrupt">Interrupted rotation</button>
+<p id="status" class="muted" role="status">Matching checkpoints do not prove independent custody.</p>
+<small>Simulation only: no remote providers are contacted, and no cryptographic signatures, CI runs or custody rights are verified by this viewer.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let phase=0,mode=0;
+const nodes=Array.from({length:16},(_,i)=>[0,1,2,3].map(k=>i&(1<<k)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+const situations=[
+["BOTH PRESENT","PENDING CUSTODY","Matching checkpoints do not prove independent custody."],
+["ONE DELAYED","PENDING CUSTODY","Delayed evidence is not a reason to grant replacement authority."],
+["PROVIDER MISSING","PENDING CUSTODY","A missing custodian remains absent; failover stays HOLD."],
+["INTERRUPTED HOLD","ROTATION INCOMPLETE","Partial intent is preserved without installing a new key."]
+];
+function setMode(n){mode=n;const s=situations[n];document.getElementById("provider").textContent=s[0];document.getElementById("rotation").textContent=s[1];document.getElementById("status").textContent=s[2]}
+document.getElementById("normal").onclick=()=>setMode(0);document.getElementById("delay").onclick=()=>setMode(1);document.getElementById("lost").onclick=()=>setMode(2);document.getElementById("interrupt").onclick=()=>setMode(3);
+function project(v){let[x,y,z,w]=v,a=phase*.006,b=phase*.003;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),g=2.45/(4.4-z*f);return[x*f*g,y*f*g]}
+function animate(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#0a0a20";ctx.fillRect(0,0,W,H);
+const scale=Math.min(W,H)*.275,p=nodes.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),color=mode===3&&axis===3?"#ff3977":mode===2&&axis===2?"#ff9c5c":["#40ffe0","#c088ff","#ffa468","#8bbfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*scale,H/2+p[i][1]*scale);ctx.lineTo(W/2+p[j][0]*scale,H/2+p[j][1]*scale);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=17;ctx.lineWidth=axis===3?2.2:1.35;ctx.stroke()}
+ctx.shadowBlur=0;ctx.fillStyle=mode?"#ffb086":"#a8ffed";ctx.font="12px monospace";ctx.fillText(["TWO CLAIMS · NO AUTHORITY","DELAY ≠ DISAPPEARANCE","ABSENCE ≠ FAILOVER AUTHORITY","INTERRUPTION → QUARANTINE"][mode],14,H-19);
+phase++;requestAnimationFrame(animate)}animate();
+</script></body></html>
