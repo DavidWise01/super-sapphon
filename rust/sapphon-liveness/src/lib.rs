@@ -11,6 +11,7 @@ use std::{
 pub const AUTHORITY: &str = "HOLD";
 pub mod custody;
 pub mod pinned;
+pub mod witness135;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
