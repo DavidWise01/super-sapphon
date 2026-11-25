@@ -1,0 +1,60 @@
+name: SAPPHON-136 Phase XI Signature Freeze Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-136-freeze.yml'
+      - 'docs/sapphon/phase-xi/136/**'
+permissions:
+  contents: read
+jobs:
+  phase-xi:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Signed witness and inherited owner tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Rust lint and docs
+        run: |
+          cargo fmt --manifest-path rust/sapphon-liveness/Cargo.toml --all -- --check
+          cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Legacy recovery security tests
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify all inherited 188 frozen hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=(
+            'docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(path).read_bytes()
+                  assert len(data)==expected['bytes'],path
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/{n} inherited frozen file hashes')
+          PY
+      - name: Ensure all SAPPHON-136 authority gates remain HOLD
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('rust/sapphon-liveness/src/attest136.rs').read_text()
+          for expected in ['pub const AUTHORITY: &str = "HOLD"','decision: "HOLD"',
+                           'lock_cleared: false','external_authority: false',
+                           'authenticated_utc: false','independence_proven: false']:
+              assert expected in src, expected
+          print('PASS authority stays HOLD; no automatic lock clearance')
+          PY
