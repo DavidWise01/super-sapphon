@@ -1,0 +1,35 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-147 · Checkpoint Lineage</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 24%,#34214d,#080b18 70%);color:#f2edff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #6d548f}h1{font-size:clamp(24px,3vw,39px);margin:6px 0;text-shadow:0 0 19px #a86fff9c}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:17px;max-width:1460px;margin:20px auto;padding:0 16px}
+.panel{border-radius:16px;border:1px solid #70558d;overflow:hidden;background:#151029db;box-shadow:0 0 28px #5c3a8552}canvas{height:465px;width:100%;display:block}.side{padding:21px}
+.metric{padding:12px;margin:10px 0;border-radius:9px;border:1px solid #544270;background:#18122b}strong{color:#3affdf}
+.hold{font-size:30px;font-weight:900;color:#ff9a62;text-shadow:0 0 17px #fb70318a}
+button{background:#38244f;border:1px solid #b190db;color:#fff;border-radius:8px;padding:10px 12px;margin:4px;cursor:pointer}small,.muted{color:#b6acce}
+footer{text-align:center;padding:22px;color:#af9fc9}code{color:#a3ffe7}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XIII · TURN 3 OF 8 · SIMULATED PREFIX EVIDENCE</small><h1>SAPPHON-147 · Checkpoint Lineage &amp; Key Rotation</h1>
+<div class="muted">4D tesseract shadow · earlier prefix → later checkpoint · dual signature rotation</div></header>
+<main><section class="panel"><canvas id="canvas" aria-label="Neon 4D tesseract showing valid lineage and conflicting branches"></canvas></section>
+<section class="panel side"><div class="metric">Phase XIII <strong>37.5% DESIGN</strong></div>
+<div class="metric">Checkpoint relationship <strong id="state">ProvenPrefixWithLag</strong></div>
+<div class="metric">Key rotation <strong id="rotation">BOTH SIGNATURES REQUIRED</strong></div>
+<div class="metric">Provider custody <strong>INDEPENDENCE NOT PROVEN</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="prefix">Simulate valid prefix</button><button id="fork">Simulate fork</button>
+<button id="missing">Simulate missing new key signature</button>
+<p class="muted" id="note">A valid prior prefix permits a lag classification, never recovery authority.</p>
+<small>Illustrative browser visualization only. Does not verify real signatures, query a provider, or certify custody.</small></section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("canvas"),c=canvas.getContext("2d");let t=0,mode=0;
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(k=>i&(1<<k)?1:-1)),edges=[];
+for(let a=0;a<16;a++)for(let b=a+1;b<16;b++)if(((a^b)&((a^b)-1))===0)edges.push([a,b]);
+function set(m){mode=m;document.getElementById("state").textContent=m===0?"ProvenPrefixWithLag":m===1?"ConflictingHistory":"PENDING KEY ROTATION";document.getElementById("rotation").textContent=m===2?"ROTATION_SIGNATURE → REJECT":"BOTH SIGNATURES REQUIRED";document.getElementById("note").textContent=m===0?"Both signed heads match their actual local history prefixes; authority remains HOLD.":m===1?"A signed head contradicts the verified local history. Conflict retained; HOLD.":"New key cannot be accepted without a valid new-key signature."}
+document.getElementById("prefix").onclick=()=>set(0);document.getElementById("fork").onclick=()=>set(1);document.getElementById("missing").onclick=()=>set(2);
+function project(v){let[x,y,z,w]=v,a=t*.005,b=t*.0032;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),g=2.4/(4.3-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);c.setTransform(d,0,0,d,0,0);c.fillStyle="#0a0920";c.fillRect(0,0,W,H);let m=Math.min(W,H)*.28,ps=vs.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),col=mode===1&&axis===3?"#ff3669":mode===2&&axis===1?"#ffb067":["#3dffe0","#bf86ff","#ffa066","#8bbaff"][axis];c.beginPath();c.moveTo(W/2+ps[i][0]*m,H/2+ps[i][1]*m);c.lineTo(W/2+ps[j][0]*m,H/2+ps[j][1]*m);c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=17;c.lineWidth=axis===3?2.1:1.35;c.stroke()}c.shadowBlur=0;c.fillStyle=mode?"#ff9c70":"#9effe7";c.font="12px monospace";c.fillText(mode===0?"OLDER PREFIX ⊂ VERIFIED NEWER HEAD":mode===1?"DIVERGENT SIGNED HISTORY → HOLD":"DUAL-SIGNED ROTATION REQUIRED",15,H-18);t++;requestAnimationFrame(frame)}frame();
+</script></body></html>
