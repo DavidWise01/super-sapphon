@@ -1,0 +1,55 @@
+name: SAPPHON-142 Deterministic Evidence Export
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-142-export.yml'
+      - 'docs/sapphon/phase-xii/142/**'
+permissions:
+  contents: read
+jobs:
+  evidence-export:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic evidence export and inherited Rust tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Preserve recovery and journal regression gates
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historical frozen hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for p,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  b=pathlib.Path(p).read_bytes()
+                  assert len(b)==expected['bytes'],p
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],p
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 immutable source hashes')
+          PY
+      - name: Assert evidence export never grants recovery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('rust/sapphon-liveness/src/export142.rs').read_text()
+          for needle in ('pub const AUTHORITY:&str="HOLD"','EXPORT_EQUIVOCATION',
+                         'EXPORT_SHARED_ANCESTRY','EXPORT_ALREADY_EXISTS',
+                         'independent_custody_proven:false','lock_cleared:false'):
+              assert needle in src,needle
+          print('PASS source invariant: authority HOLD')
+          PY
