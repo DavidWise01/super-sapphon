@@ -12,10 +12,10 @@ const p1=e.signForTest(policy,issuer.privateKey);
 const p2=e.signForTest({...policy,generation:2,issuer_revoked:true,previous_digest:digest(e.bytes(policy))},issuer.privateKey);
 const p2op=e.signForTest({...policy,generation:2,operator_revoked:true,previous_digest:digest(e.bytes(policy))},issuer.privateKey);
 const p3=e.signForTest({...p2.payload,generation:3,issuer_generation:2,previous_digest:digest(e.bytes(p2.payload))},issuer.privateKey);
-let n=0;
+let n=0,replicaNumber=0;
 function check(name,fn){fn();console.log("PASS",++n,name)}
 function reject(name,fn,reason){check(name,()=>assert.throws(fn,err=>err.message===reason))}
-function create(){const dir=path.join(root,"replica-"+n);e.init(dir);return dir}
+function create(){const dir=path.join(root,"replica-"+(++replicaNumber));e.init(dir);return dir}
 function gate(dir,highWater=p1,nonce="a",extra={}){return e.gate(dir,{highWater,highWaterTrusted:true,pins,challenge_nonce:nonce.repeat(64),issuer_generation:1,operator_generation:1,...extra})}
 try{
  const a=create(),b=create();
