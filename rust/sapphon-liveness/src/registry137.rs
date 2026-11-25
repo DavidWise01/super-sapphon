@@ -179,4 +179,24 @@ mod tests {
         let mut broken=line(&a);broken[3]=b'X';
         assert!(verify(&broken,1,&genesis_head()).is_err());
     }
+    #[test] fn durable_append_reload_and_replay_rejection() {
+        let dir=std::env::temp_dir().join(format!("sapphon137-registry-{}",std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path=dir.join("ledger.jsonl");
+        let _=std::fs::remove_file(&path);
+        let zero=create_empty(&path).unwrap();
+        let event=next(&zero,"register","witness-one","root-one",&key(1),3);
+        let saved=append_checked(&path,&[],0,&zero.head,&event).unwrap();
+        assert_eq!(saved.seq,1);
+        let disk=std::fs::read(&path).unwrap();
+        let restarted=verify(&disk,1,&saved.head).unwrap();
+        assert_eq!(restarted.keys[0].min_counter,3);
+        assert_eq!(verify(&disk,0,&zero.head).unwrap_err().0,"REGISTRY_ANCHOR_MISMATCH");
+        let same=next(&restarted,"advance","witness-one","root-one",&key(1),3);
+        assert_eq!(append_checked(&path,&disk,1,&saved.head,&same).unwrap_err().0,
+            "REGISTRY_TRANSITION");
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_dir(&dir).unwrap();
+    }
+
 }
