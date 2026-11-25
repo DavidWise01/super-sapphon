@@ -9,5 +9,6 @@ license = "MIT"
 [dependencies]
 sapphon-audit = { path = "../sapphon-audit" }
 sapphon-journal = { path = "../sapphon-journal" }
+sapphon-audit = { path = "../sapphon-audit" }
 ed25519-dalek = "2.2"
 base64 = "0.22"
