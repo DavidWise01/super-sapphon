@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-139 · Supervised Registry Writer</title>
+<style>
+:root{color-scheme:dark;--cyan:#39ffe3;--orange:#ff965c;--violet:#c38bff}*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 45% 24%,#272044,#070913 72%);color:#eae9ff;font:15px system-ui,sans-serif}
+header{padding:25px 5vw;border-bottom:1px solid #6a579a}h1{font-size:clamp(23px,3vw,40px);margin:6px 0;text-shadow:0 0 22px #985dff8e}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(310px,2fr);gap:16px;padding:20px;max-width:1460px;margin:auto}
+.panel{border:1px solid #6b5696;background:#13132acc;border-radius:16px;box-shadow:0 0 25px #6241a63c;overflow:hidden}
+canvas{width:100%;height:460px;display:block}
+.side{padding:22px}.metric{border:1px solid #52476d;padding:13px;margin:10px 0;border-radius:9px;background:#161329}
+strong{color:var(--cyan)}small,.muted{color:#ada6c6}.hold{font-weight:900;font-size:30px;color:var(--orange);text-shadow:0 0 20px #ff682e77}
+button{padding:10px 12px;background:#34234e;border:1px solid #a482dc;border-radius:8px;color:white;cursor:pointer;margin:5px 5px 5px 0}
+#state{font-weight:700;color:var(--orange)}footer{text-align:center;color:#a8a0c5;padding:20px}
+code{color:#a7ffe9}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XII · 3 OF 8 · IMPLEMENTATION DEMONSTRATION</small><h1>SAPPHON-139 · Supervised Append Ownership</h1>
+<div class="muted">4D shadow projection · one writer · three pumps · four registers · one output</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Animated neon tesseract and registry commit boundary"></canvas></section>
+<section class="panel side">
+<div class="metric">Original Linux descriptor <strong>HELD</strong></div>
+<div class="metric">Cooperative exclusive writer <strong>FLOCK</strong></div>
+<div class="metric">Durable local append <strong>FSYNC + READBACK</strong></div>
+<div class="metric">External checkpoint <strong>NOT ACKNOWLEDGED</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<div id="state" role="status">LOCAL READY · EXTERNAL HOLD</div>
+<button id="append">Visualize append</button><button id="interrupt">Simulate interruption</button><button id="reset">Reset</button>
+<p><small>This is an illustrative browser animation, not an OS lock, external witness, verified CI test, or authenticated checkpoint.</small></p>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";
+const canvas=document.getElementById('scene'),c=canvas.getContext('2d'),text=document.getElementById('state');
+let t=0,mode=0,started=0;
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(k=>i&(1<<k)?1:-1));
+const edges=[];for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+document.getElementById('append').onclick=()=>{mode=1;started=t;text.textContent='LOCAL WRITE → FSYNC → READBACK · EXTERNAL HOLD'};
+document.getElementById('interrupt').onclick=()=>{mode=2;started=t;text.textContent='PARTIAL TAIL QUARANTINED · NO REPAIR OR AUTHORITY'};
+document.getElementById('reset').onclick=()=>{mode=0;text.textContent='LOCAL READY · EXTERNAL HOLD'};
+function proj(p){let [x,y,z,w]=p,a=t*.005;let cs=Math.cos(a),sn=Math.sin(a);[x,w]=[x*cs-w*sn,x*sn+w*cs];let b=a*.6;[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),h=2.5/(4.5-z*f);return[x*f*h,y*f*h]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);canvas.width=Math.round(r.width*d);canvas.height=Math.round(r.height*d);c.setTransform(d,0,0,d,0,0);
+let W=r.width,H=r.height,scale=Math.min(W,H)*.27;c.fillStyle='#0c0a22';c.fillRect(0,0,W,H);let p=vs.map(proj);
+for(const [i,j] of edges){let dim=Math.log2(i^j);c.beginPath();c.moveTo(W/2+p[i][0]*scale,H/2+p[i][1]*scale);c.lineTo(W/2+p[j][0]*scale,H/2+p[j][1]*scale);c.strokeStyle=mode===2&&dim===3?'#ff335e':['#3bffe0','#bd7cff','#ff995c','#91bdff'][dim];c.shadowColor=c.strokeStyle;c.shadowBlur=16;c.lineWidth=dim===3?2:1.35;c.stroke()}
+c.shadowBlur=0;c.font='12px monospace';c.fillStyle='#c9bbeb';c.fillText('1 descriptor · local durable ≠ external acknowledged',14,H-17);
+if(mode===1){let step=Math.floor((t-started)/34);if(step>3){mode=3;text.textContent='LOCAL FSYNC VERIFIED IN MODEL · EXTERNAL ACK: FALSE'}else{c.fillStyle='#34ffe3';c.fillText(['WRITE','FSYNC','READBACK','PENDING'][Math.max(0,step)],16,25)}}
+if(mode===2){c.fillStyle='#ff6b82';c.fillText('INTERRUPTION → QUARANTINE / HOLD',16,25)}
+t++;requestAnimationFrame(frame)}frame();
+</script></body></html>
