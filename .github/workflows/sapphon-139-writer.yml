@@ -1,0 +1,57 @@
+name: SAPPHON-139 Phase XII Supervised Registry Append
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-139-writer.yml'
+      - 'docs/sapphon/phase-xii/139/**'
+permissions:
+  contents: read
+jobs:
+  supervised-append:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run supervised append and inherited Linux Rust tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check exact readback and pending custody invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/writer139.rs').read_text()
+          for term in ('local_fsync_observed:true',
+                       'external_checkpoint_acknowledged:false',
+                       'decision:"HOLD"', 'lock_cleared:false',
+                       'write_at', 'sync_all', 'WRITER_PATH_CHANGED',
+                       'WRITER_PARTIAL_WRITE'):
+              assert term in s,term
+          print('PASS source invariants: durable local write != external checkpoint')
+          PY
+      - name: Run inherited recovery and audit regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 frozen source hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+              'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+              'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+              'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+              'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for m in manifests:
+              for path,expected in json.loads(pathlib.Path(m).read_text())['files'].items():
+                  b=pathlib.Path(path).read_bytes()
+                  assert len(b)==expected['bytes'],path
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 immutable hashes')
+          PY
