@@ -1,0 +1,13 @@
+[package]
+name = "sapphon-contention"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "SAPPHON-130 multi-process synthetic journal contention and restart fault harness"
+license = "MIT"
+
+[dependencies]
+sapphon-audit = { path = "../sapphon-audit" }
+sapphon-journal = { path = "../sapphon-journal" }
+ed25519-dalek = "2.2"
+base64 = "0.22"
