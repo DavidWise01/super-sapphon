@@ -9,11 +9,14 @@ pub fn signing_key() -> SigningKey {
 }
 pub fn pins() -> PinRegistry {
     let key = signing_key();
-    BTreeMap::from([("publisher-one".into(), PublisherPin {
-        control_root: "owned-root".into(),
-        public_key: key.verifying_key().to_bytes(),
-        revoked: false,
-    })])
+    BTreeMap::from([(
+        "publisher-one".into(),
+        PublisherPin {
+            control_root: "owned-root".into(),
+            public_key: key.verifying_key().to_bytes(),
+            revoked: false,
+        },
+    )])
 }
 pub fn signed(revoked: bool) -> SignedSnapshot {
     let payload = SnapshotPayload {
