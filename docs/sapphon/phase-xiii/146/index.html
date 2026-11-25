@@ -1,0 +1,42 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-146 · Dual Anchor Laboratory</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 23%,#32204e,#080917 75%);color:#f4eeff;font:15px system-ui,sans-serif}
+header{padding:23px 5vw;border-bottom:1px solid #715494}h1{font-size:clamp(23px,3vw,39px);margin:6px 0;text-shadow:0 0 18px #ab76ff9c}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;padding:18px;max-width:1460px;margin:auto}
+.panel{background:#15102bd9;border:1px solid #69548f;border-radius:15px;overflow:hidden;box-shadow:0 0 29px #3d236966}
+canvas{display:block;width:100%;height:465px}.side{padding:20px}.metric{background:#14102c;border:1px solid #56446d;padding:13px;margin:9px 0;border-radius:8px}
+strong{color:#3affdf}.hold{color:#ff9c5f;font-size:31px;font-weight:900;text-shadow:0 0 17px #ff662866}
+button{padding:9px 12px;background:#352250;border:1px solid #a581dd;color:#fff;border-radius:9px;margin:5px 5px 5px 0;cursor:pointer}
+small,.muted{color:#b9aed0}footer{text-align:center;padding:22px;color:#b7a8cd}code{color:#a1ffe4}
+@media(max-width:825px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XIII · 2 OF 8 · 25% DESIGN · SIMULATED EVIDENCE</small>
+<h1>SAPPHON-146 · Two Anchor Providers</h1><div class="muted">Two signed sources · four-dimensional projection · independent custody still unproven</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Neon rotating four-dimensional cube with two checkpoint witnesses"></canvas></section>
+<section class="panel side">
+<div class="metric">Provider A <strong>SIGNED CLAIM</strong></div>
+<div class="metric">Provider B <strong>SIGNED CLAIM</strong></div>
+<div class="metric">Comparison <strong id="finding">SameCheckpoint</strong></div>
+<div class="metric">Independent source ancestry <strong>UNAUTHENTICATED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="same">Matching heads</button><button id="heads">Conflicting heads</button>
+<button id="lag">Different sequences</button><button id="epoch">Different epochs</button>
+<p class="muted" id="note">Matching signed heads are not proof of independent custody.</p>
+<small>Interactive visualization only. It neither verifies actual cryptographic signatures nor accesses remote checkpoint providers or live CI.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("scene"),ctx=canvas.getContext("2d");let angle=0,mode=0;
+const names=["SameCheckpoint","ConflictingHeadAtSameSequence","DifferentSequenceFloors","DifferentEpochs"];
+const notes=["Matching signed heads are not proof of independent custody.","Two authenticated checkpoint claims disagree on the same sequence.","Different sequence floors might be propagation lag or rollback.","Epoch observations disagree; comparison stays HOLD."];
+for(const [id,n] of [["same",0],["heads",1],["lag",2],["epoch",3]])document.getElementById(id).onclick=()=>{mode=n;document.getElementById("finding").textContent=names[n];document.getElementById("note").textContent=notes[n]};
+const v=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(p){let[x,y,z,w]=p,a=angle,b=angle*.58;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.7/(4-w),g=2.6/(4.5-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#0b0922";ctx.fillRect(0,0,W,H);
+const k=Math.min(W,H)*.27,p=v.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),c=mode===1&&axis===3?"#ff3d78":["#3bffe0","#bc83ff","#ff9e5f","#84bdff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.lineWidth=axis===3?2.2:1.4;ctx.strokeStyle=c;ctx.shadowColor=c;ctx.shadowBlur=17;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode===1?"#ff668a":"#b7ffee";ctx.fillText("PROVIDER A",15,23);ctx.fillText("PROVIDER B",Math.max(15,W-110),23);ctx.fillText(mode===1?"SIGNED CONFLICT → HOLD":mode===2?"FLOOR SKEW ≠ AUTOMATIC EQUIVOCATION":"SIGNED EVIDENCE ≠ INDEPENDENT AUTHORITY",15,H-19);
+angle+=.006;requestAnimationFrame(draw)}draw();
+</script></body></html>
