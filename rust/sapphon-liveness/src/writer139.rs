@@ -2,7 +2,7 @@
 //! Local fsync is not an external checkpoint acknowledgement.
 //! A partial write remains quarantined; never silently truncate or authorize recovery.
 #![cfg(target_os = "linux")]
-use crate::{registry137::{self, Event, Snapshot}, Error};
+use crate::{registry137::{self, Event}, Error};
 use std::{fs::{self, File, OpenOptions}, os::{fd::AsRawFd, unix::fs::{FileExt, MetadataExt, OpenOptionsExt}}, path::{Path, PathBuf}};
 pub const AUTHORITY: &str = "HOLD";
 const O_NOFOLLOW: i32 = libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK;
@@ -108,7 +108,7 @@ mod tests {
     use ed25519_dalek::SigningKey;
     fn fixture(name:&str)->PathBuf {
         let p=std::env::temp_dir().join(format!("sapphon139-{name}-{}",std::process::id()));
-        let _=fs::remove_file(&p);fs::write(&p,[]).unwrap();p
+        let _=fs::remove_file(&p);fs::write(&p,b"").unwrap();p
     }
     fn key()->String {hex::encode(SigningKey::from_bytes(&[7u8;32]).verifying_key().as_bytes())}
     #[test] fn supervised_append_fsync_and_restart_still_hold() {
@@ -157,7 +157,7 @@ mod tests {
         let p=fixture("swap");let other=p.with_extension("other");
         let _=fs::remove_file(&other);
         let mut writer=SupervisedWriter::open(&p).unwrap();
-        fs::rename(&p,&other).unwrap();fs::write(&p,[]).unwrap();
+        fs::rename(&p,&other).unwrap();fs::write(&p,b"").unwrap();
         let zero=registry137::verify(&[],0,&registry137::genesis_head()).unwrap();
         let event=registry137::next(&zero,"register","witness-one","root-one",&key(),1);
         assert_eq!(writer.append(0,&registry137::genesis_head(),&event).unwrap_err().0,
