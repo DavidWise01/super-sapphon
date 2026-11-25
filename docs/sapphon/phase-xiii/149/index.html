@@ -1,0 +1,43 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-149 · Disaster Replay Laboratory</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 22%,#301f4d,#090a18 72%);color:#f3efff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #705690}h1{font-size:clamp(24px,3vw,39px);margin:6px 0;text-shadow:0 0 20px #ad77ff9a}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1460px;margin:18px auto;padding:0 16px}
+.panel{border:1px solid #68518f;background:#151029dc;border-radius:16px;overflow:hidden;box-shadow:0 0 26px #512f804a}
+canvas{width:100%;height:470px;display:block}.side{padding:20px}.metric{padding:12px;border:1px solid #55416f;margin:10px 0;border-radius:9px;background:#16112c}
+strong{color:#3affdf}.hold{color:#ff9c60;font-weight:900;font-size:30px;text-shadow:0 0 18px #fd723988}
+button{background:#37244e;border:1px solid #a681da;border-radius:8px;color:#fff;padding:9px 11px;cursor:pointer;margin:4px}
+small,.muted{color:#bcafce}footer{color:#afa0c9;padding:22px;text-align:center}code{color:#abffeb}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:340px}}
+</style></head><body>
+<header><small>PHASE XIII · TURN 5 OF 8 · 62.5% DESIGN · SYNTHETIC REPLAY</small>
+<h1>SAPPHON-149 · Disaster Recovery Replay</h1>
+<div class="muted">Local-state replacement · independently supplied checkpoint · 4D shadow · authority gated</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Animated neon 4D tesseract showing local-history restoration and disagreement"></canvas></section>
+<section class="panel side">
+<div class="metric">Trusted anchor <strong>SIGNED CHECKPOINT REQUIRED</strong></div>
+<div class="metric">Rotation intent <strong>EXTERNAL DIGEST REQUIRED</strong></div>
+<div class="metric">Replay classification <strong id="state">MatchedExternalEvidence</strong></div>
+<div class="metric">Independent custody <strong>NOT PROVEN</strong></div>
+<div class="metric">Operational recovery <div class="hold">HOLD</div></div>
+<button id="match">Matching evidence</button><button id="rollback">Local rollback</button><button id="conflict">Contradictory head</button><button id="lost">Missing intent</button>
+<p class="muted" id="detail" role="status">A matching replay remains an observation. It does not grant recovery.</p>
+<small>Illustrative browser animation. These are synthetic examples; the viewer does not read live checkpoints, authenticate actual signatures, or check deployment status.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("scene"),ctx=canvas.getContext("2d");let tick=0,mode=0;
+const modes=[
+["MatchedExternalEvidence","A matching replay remains an observation. It does not grant recovery."],
+["LocalHistoryRolledBack","Local history ends before the signed anchor. Recovery remains HOLD."],
+["ContradictoryLocalHistory","The head at the signed checkpoint sequence conflicts with the local chain."],
+["IntentUnavailable","A missing or replaced rotation intent cannot become an accepted key change."]
+];
+function set(m){mode=m;document.getElementById("state").textContent=modes[m][0];document.getElementById("detail").textContent=modes[m][1]}
+for(const[id,i]of [["match",0],["rollback",1],["conflict",2],["lost",3]])document.getElementById(id).onclick=()=>set(i);
+const verts=Array.from({length:16},(_,n)=>[0,1,2,3].map(j=>n&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function p(v){let[x,y,z,w]=v,a=tick*.0055,b=tick*.003;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.75/(4-w),g=2.5/(4.4-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#0a0920";ctx.fillRect(0,0,W,H);
+const k=Math.min(W,H)*.28,pts=verts.map(p);for(const[i,j]of edges){const axis=Math.log2(i^j),color=(mode===2&&axis===3)?"#ff3972":(mode===1&&axis===2)?"#fa9b59":(mode===3&&axis===1)?"#ffbd66":["#3bffe6","#c084ff","#ffa467","#86bfff"][axis];ctx.beginPath();ctx.moveTo(W/2+pts[i][0]*k,H/2+pts[i][1]*k);ctx.lineTo(W/2+pts[j][0]*k,H/2+pts[j][1]*k);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=17;ctx.lineWidth=axis===3?2.2:1.4;ctx.stroke()}ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffb089":"#acffee";ctx.fillText(["MATCH ≠ RECOVERY AUTHORITY","ERASED LOCAL HISTORY → HOLD","CONFLICTING RECONSTRUCTION → HOLD","INTENT MISSING → HOLD"][mode],15,H-20);tick++;requestAnimationFrame(frame)}frame();
+</script></body></html>
