@@ -1,0 +1,57 @@
+name: SAPPHON-140 Dual-Custodian Checkpoint Reconciliation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-140-checkpoints.yml'
+      - 'docs/sapphon/phase-xii/140/**'
+permissions:
+  contents: read
+jobs:
+  checkpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify dual-signature and restart reconciliation Rust tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify inherited Rust recovery gates
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 inherited frozen hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for p,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  b=pathlib.Path(p).read_bytes()
+                  assert len(b)==expected['bytes'],p
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],p
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historical frozen hashes')
+          PY
+      - name: Verify authority HOLD remains explicit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('rust/sapphon-liveness/src/checkpoint140.rs').read_text()
+          for token in ('pub const AUTHORITY: &str = "HOLD"',
+                        'external_checkpoint_acknowledged:false',
+                        'global_anti_rollback:false',
+                        'lock_cleared:false',
+                        'Reconciliation::DualSignedCustodyPending'):
+              assert token in src,token
+          print('PASS no external authority promotion')
+          PY
