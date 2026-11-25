@@ -1,0 +1,44 @@
+name: SAPPHON-124 Revocation Propagation and Credential Generation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_124_revocation.cjs'
+      - 'tools/test_sapphon_124_revocation.cjs'
+      - 'docs/sapphon/phase-x/124/**'
+      - '.github/workflows/sapphon-124-revocation.yml'
+permissions:
+  contents: read
+jobs:
+  revocation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify delayed signatures, revocation propagation and credential generations
+        run: node tools/test_sapphon_124_revocation.cjs
+      - name: Preserve inherited two-role challenge and origin proofs
+        run: |
+          node tools/test_sapphon_123_challenge.cjs
+          node tools/test_sapphon_122_origin.cjs
+      - name: Validate neon viewer and all four immutable frozen phases
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-x/124/index.html','utf8');
+          const m=h.match(/<script>([\s\S]*?)<\/script>/);assert(m);
+          new vm.Script(m[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1','PHYSICAL CLOCK + CUSTODY HOLD','Phase X · 4/8'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS SAPPHON-124 neon viewer syntax and outside authority HOLD');
+          NODE
+          python3 - <<'PY'
+          import json,hashlib,pathlib
+          for p in ('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json','docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json','docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json'):
+              d=json.loads(pathlib.Path(p).read_text())
+              for f,record in d['files'].items():
+                  blob=pathlib.Path(f).read_bytes()
+                  assert hashlib.sha256(blob).hexdigest()==record['sha256'] and len(blob)==record['bytes'],f
+              print('PASS',p,len(d['files']),'frozen hashes')
+          PY
