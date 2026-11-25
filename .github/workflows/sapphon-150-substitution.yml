@@ -1,0 +1,61 @@
+name: SAPPHON-150 Triple-State Substitution Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-150-substitution.yml'
+      - 'docs/sapphon/phase-xiii/150/**'
+permissions:
+  contents: read
+jobs:
+  substitution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Full liveness test suite including SAPPHON-150
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery and audit regression suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historic source freezes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+              'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+              'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+              'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+              'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          count=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expected['bytes'],path
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],path
+                  count+=1
+          assert count==188,count
+          print(f'PASS {count}/188 inherited hashes')
+          PY
+      - name: Verify evidence review does not grant authority
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('rust/sapphon-liveness/src/substitution150.rs').read_text()
+          for term in ('pub const AUTHORITY:&str="HOLD"',
+                       'independent_custody_proven:false',
+                       'replacement_key_accepted:false',
+                       'lock_cleared:false',
+                       'ProviderConfigurationReplaced',
+                       'RotationIntentReplacedOrMissing',
+                       'RegistryRolledBack'):
+              assert term in source,term
+          print('PASS HOLD invariants')
+          PY
+      - name: Build Rust API docs
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
