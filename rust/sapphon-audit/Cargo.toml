@@ -1,0 +1,18 @@
+[package]
+name = "sapphon-audit"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "SAPPHON synthetic publication equivocation and ancestry audit"
+license = "MIT"
+
+[dependencies]
+base64 = "0.22"
+ed25519-dalek = "2.2"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+
+[dev-dependencies]
+# Unit tests generate deterministic local Ed25519 fixture keys.
