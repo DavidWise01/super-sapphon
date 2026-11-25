@@ -1,0 +1,48 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-150 · Triple-State Substitution</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 22%,#30204a,#080b18 73%);color:#f2ecff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #775b93}h1{font-size:clamp(23px,3vw,39px);margin:7px 0;text-shadow:0 0 20px #a773ff98}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1460px;margin:18px auto;padding:0 16px}
+.panel{background:#15122bdc;border:1px solid #6b558e;overflow:hidden;border-radius:15px;box-shadow:0 0 26px #4f307b55}
+canvas{height:465px;width:100%;display:block}.side{padding:20px}.metric{border:1px solid #524270;border-radius:9px;background:#15112a;margin:10px 0;padding:13px}
+strong{color:#3affe0}.hold{color:#ff985d;font-weight:900;font-size:30px;text-shadow:0 0 20px #fc6f36aa}
+button{padding:10px;background:#382650;color:#fff;border:1px solid #aa8ade;border-radius:8px;margin:4px;cursor:pointer}
+small,.muted{color:#b7abcd}footer{text-align:center;color:#baaacc;padding:21px}code{color:#a3ffe9}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body><header><small>PHASE XIII · 6 OF 8 · 75% DESIGN · SYNTHETIC THREAT LAB</small>
+<h1>SAPPHON-150 · Total-State Substitution</h1>
+<div class="muted">Registry + rotation intent + provider configuration · 4D shadow tesseract · independent anchors required</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Rotating neon tesseract with three local evidence surfaces"></canvas></section>
+<section class="panel side">
+<div class="metric">Local registry <strong id="registry">MATCHES PINNED DIGEST</strong></div>
+<div class="metric">Rotation intent <strong id="intent">MATCHES PINNED DIGEST</strong></div>
+<div class="metric">Provider configuration <strong id="provider">MATCHES PINNED DIGEST</strong></div>
+<div class="metric">Review classification <strong id="state">AllLocalEvidenceMatches</strong></div>
+<div class="metric">Authority <div class="hold">HOLD</div></div>
+<button id="match">Exact reconstruction</button><button id="rollback">Registry rollback</button><button id="intentAttack">Replace intent</button><button id="all">Replace all three</button>
+<p id="note" class="muted" role="status">Matching local evidence does not prove independent external custody.</p>
+<small>Demonstration only: no real filesystem, custodian, GitHub Actions or cryptographic verification is performed here.</small>
+</section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let time=0,mode=0;
+const states=[
+["MATCHES PINNED DIGEST","MATCHES PINNED DIGEST","MATCHES PINNED DIGEST","AllLocalEvidenceMatches","Matching local evidence does not prove independent external custody."],
+["ROLLBACK DETECTED","MATCHES PINNED DIGEST","MATCHES PINNED DIGEST","RegistryRolledBack","The local registry predates the externally signed checkpoint; no automatic recovery."],
+["MATCHES PINNED DIGEST","REPLACED OR MISSING","MATCHES PINNED DIGEST","RotationIntentReplacedOrMissing","An altered intent cannot authorize a replacement signing key."],
+["REPLACED","REPLACED","REPLACED","ProviderConfigurationReplaced","All three local surfaces changed. Only separately retained references expose the substitution."]
+];
+function setMode(n){mode=n;for(const[id,k]of [["registry",0],["intent",1],["provider",2],["state",3],["note",4]])document.getElementById(id).textContent=states[n][k]}
+document.getElementById("match").onclick=()=>setMode(0);
+document.getElementById("rollback").onclick=()=>setMode(1);
+document.getElementById("intentAttack").onclick=()=>setMode(2);
+document.getElementById("all").onclick=()=>setMode(3);
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function p(v){let[x,y,z,w]=v,a=time*.0056,b=time*.003;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.8/(4-w),g=2.45/(4.3-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);
+ctx.fillStyle="#090a21";ctx.fillRect(0,0,W,H);const m=Math.min(W,H)*.28,pts=vs.map(p);
+for(const[i,j]of edges){const axis=Math.log2(i^j),corrupt=mode===3 || (mode===1&&axis===0)||(mode===2&&axis===1),color=corrupt?"#ff4d77":["#40ffe0","#bc85ff","#ffa166","#8bbfff"][axis];ctx.beginPath();ctx.moveTo(W/2+pts[i][0]*m,H/2+pts[i][1]*m);ctx.lineTo(W/2+pts[j][0]*m,H/2+pts[j][1]*m);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=17;ctx.lineWidth=axis===3?2.2:1.35;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffab82":"#b2ffed";ctx.fillText(["MATCH ≠ OPERATIONAL AUTHORITY","REGISTRY ROLLBACK → HOLD","INTENT REPLACED → HOLD","TRIPLE SUBSTITUTION → HOLD"][mode],15,H-19);time++;requestAnimationFrame(draw)}draw();
+</script></body></html>
