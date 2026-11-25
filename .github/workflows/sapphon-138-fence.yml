@@ -1,0 +1,53 @@
+name: SAPPHON-138 Phase XII Linux Registry Fence
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-138-fence.yml'
+      - 'docs/sapphon/phase-xii/138/**'
+permissions:
+  contents: read
+jobs:
+  linux-fence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Linux registry no-follow flock and tamper tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery / audit regressions
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 frozen source hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+              'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+              'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+              'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+              'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(path).read_bytes()
+                  assert len(data)==expected['bytes'],path
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 frozen sources')
+          PY
+      - name: Verify HOLD-only registry fence
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/fence138.rs').read_text()
+          for term in ['AUTHORITY: &str = "HOLD"','NOFOLLOW','LOCK_EX | libc::LOCK_NB','FENCE_PATH_CHANGED','REGISTRY_ANCHOR_MISMATCH']:
+              assert term in s,term
+          print('PASS: advisory fencing and HOLD; no lock recovery')
+          PY
