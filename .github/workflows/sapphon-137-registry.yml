@@ -1,0 +1,55 @@
+name: SAPPHON-137 Phase XII Local Registry Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-137-registry.yml'
+      - 'docs/sapphon/phase-xii/137/**'
+permissions:
+  contents: read
+jobs:
+  registry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Rust registry transition tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check inherited recovery gates
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify immutable historical 188 hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=(
+            'docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for m in manifests:
+              for p,expected in json.loads(pathlib.Path(m).read_text())['files'].items():
+                  data=pathlib.Path(p).read_bytes()
+                  assert len(data)==expected['bytes'],p
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],p
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n} frozen hashes')
+          PY
+      - name: Verify authority remains HOLD
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          src=Path('rust/sapphon-liveness/src/registry137.rs').read_text()
+          assert 'pub const AUTHORITY: &str = "HOLD"' in src
+          assert 'REGISTRY_ANCHOR_MISMATCH' in src
+          assert 'REGISTRY_TRANSITION' in src
+          print('PASS: local chain is not external rollback authority')
+          PY
