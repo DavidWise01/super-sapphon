@@ -72,12 +72,16 @@ fn journal_path(root: &Path) -> PathBuf {
 fn read_locked(root: &Path, pins: &PinRegistry) -> Result<Journal> {
     let file = journal_path(root);
     let mut fd = File::open(&file).map_err(|_| failed("JOURNAL_UNREADABLE"))?;
-    let size = fd.metadata().map_err(|_| failed("JOURNAL_UNREADABLE"))?.len();
+    let size = fd
+        .metadata()
+        .map_err(|_| failed("JOURNAL_UNREADABLE"))?
+        .len();
     if size > MAX_FILE {
         return Err(failed("JOURNAL_TOO_LARGE"));
     }
     let mut bytes = Vec::new();
-    fd.read_to_end(&mut bytes).map_err(|_| failed("JOURNAL_UNREADABLE"))?;
+    fd.read_to_end(&mut bytes)
+        .map_err(|_| failed("JOURNAL_UNREADABLE"))?;
     let journal: Journal = serde_json::from_slice(&bytes).map_err(|_| failed("JOURNAL_CORRUPT"))?;
     journal.validate(pins)?;
     Ok(journal)
@@ -100,7 +104,9 @@ fn save_locked(root: &Path, journal: &Journal, fault: Fault) -> Result<()> {
         .create_new(true)
         .open(&tmp.path)
         .map_err(|_| failed("TEMP_CREATE_FAILED"))?;
-    output.write_all(&bytes).map_err(|_| failed("TEMP_WRITE_FAILED"))?;
+    output
+        .write_all(&bytes)
+        .map_err(|_| failed("TEMP_WRITE_FAILED"))?;
     output.sync_all().map_err(|_| failed("TEMP_FSYNC_FAILED"))?;
     drop(output);
     if fault == Fault::BeforeRename {
