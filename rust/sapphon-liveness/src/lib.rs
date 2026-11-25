@@ -31,6 +31,8 @@ pub mod freeze144;
 pub mod anchor145;
 #[cfg(target_os = "linux")]
 pub mod dual_anchor146;
+#[cfg(target_os = "linux")]
+pub mod lineage147;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
