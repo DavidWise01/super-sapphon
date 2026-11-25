@@ -43,9 +43,9 @@ pub fn inspect_lineage(
     let (older,newer)=if a.0.sequence<=b.0.sequence {(a.0,b.0)} else {(b.0,a.0)};
     if newer.sequence>verified.seq {return Err(Error("LINEAGE_NEWER_NOT_OBSERVED"));}
     let mut prefix_heads=vec![registry137::genesis_head()];
-    for line in transcript.split_inclusive(|ch|*ch==b'\\n') {
+    for line in transcript.split_inclusive(|ch|*ch==b'\n') {
         if line.is_empty(){continue;}
-        if line.last()!=Some(&b'\\n'){return Err(Error("LINEAGE_TRUNCATED"));}
+        if line.last()!=Some(&b'\n'){return Err(Error("LINEAGE_TRUNCATED"));}
         let event:registry137::Event=serde_json::from_slice(&line[..line.len()-1])
             .map_err(|_|Error("LINEAGE_CORRUPT"))?;
         let canonical=serde_json::to_vec(&event).map_err(|_|Error("LINEAGE_ENCODING"))?;
