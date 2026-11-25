@@ -1,0 +1,73 @@
+name: SAPPHON-129 Rust Durable Journal & Crash Recovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-journal/**'
+      - 'docs/sapphon/phase-xi/129/**'
+      - '.github/workflows/sapphon-129-journal.yml'
+permissions:
+  contents: write
+concurrency:
+  group: sapphon-129-rust-journal
+  cancel-in-progress: false
+jobs:
+  persistence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Format new Rust persistence crate
+        run: cargo fmt --all --manifest-path rust/sapphon-journal/Cargo.toml
+      - name: Run Rust journal recovery tests and inherited signed-publication tests
+        run: |
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify Rust documentation
+        run: cargo doc --manifest-path rust/sapphon-journal/Cargo.toml --no-deps
+      - name: Parse Phase XI neon viewer and verify authority remains HOLD
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+          const h=fs.readFileSync('docs/sapphon/phase-xi/129/index.html','utf8');
+          const script=h.match(/<script>([\s\S]*?)<\/script>/);assert(script);
+          new vm.Script(script[1]);
+          for(const s of ['{{i}}','R HOT +1','G NEITHER 0','B COLD -1',
+            'PHYSICAL CLOCK + CUSTODY HOLD','Phase XI · 1/8','AFTER_RENAME'])
+            assert(h.includes(s),'Missing '+s);
+          console.log('PASS SAPPHON-129 neon archive and HOLD source gate');
+          NODE
+      - name: Preserve all 188 previous frozen file hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=(
+            'docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json',
+          )
+          total=0
+          for manifest in manifests:
+            data=json.loads(pathlib.Path(manifest).read_text())
+            for file,meta in data['files'].items():
+              blob=pathlib.Path(file).read_bytes()
+              assert hashlib.sha256(blob).hexdigest()==meta['sha256'] and len(blob)==meta['bytes'],file
+            count=len(data['files']);total+=count
+            print('PASS',manifest,count,'frozen hashes')
+          assert total==188,total
+          print('PASS 188 inherited frozen files remain byte-for-byte identical')
+          PY
+      - name: Commit canonical Rust formatting after successful acceptance
+        run: |
+          git add rust/sapphon-journal/src rust/sapphon-journal/tests
+          if git diff --cached --quiet; then
+            echo 'Canonical Rust sources already committed'
+          else
+            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'SAPPHON-129: commit tested canonical Rust journal formatting'
+            git push origin HEAD:main
+          fi
