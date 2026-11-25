@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-143 · Blind Ancestry Quarantine</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 24%,#301946,#090b17 72%);color:#f2efff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #655286}h1{margin:7px 0;font-size:clamp(23px,3vw,39px);text-shadow:0 0 20px #ad6cff8a}
+main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1450px;margin:20px auto;padding:0 16px}
+.panel{background:#14112ade;border:1px solid #6c568b;border-radius:16px;box-shadow:0 0 25px #5430894a;overflow:hidden}
+canvas{width:100%;height:440px;display:block}.side{padding:22px}.metric{border:1px solid #54456f;background:#15112a;margin:10px 0;padding:12px;border-radius:9px}
+strong{color:#42ffe2}.hold{font-weight:900;color:#ff985e;font-size:29px;text-shadow:0 0 20px #ff6b2a88}
+button{background:#32224d;border:1px solid #a881d5;color:#f3edff;padding:10px 12px;border-radius:9px;cursor:pointer;margin:5px 5px 5px 0}
+small,.muted{color:#bcb1cf}footer{text-align:center;color:#b8afd0;padding:20px}code{color:#aaffeb}
+@media(max-width:800px){main{grid-template-columns:1fr}canvas{height:330px}}
+</style></head><body>
+<header><small>PHASE XII · 7 OF 8 · EVIDENCE QUARANTINE SIMULATION</small><h1>SAPPHON-143 · Blind Ancestry Quarantine</h1>
+<div class="muted">One source ancestor does not become three independent witnesses through copies.</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Rotating four-dimensional neon tesseract showing witness paths and an optional conflict"></canvas></section>
+<section class="panel side">
+<div class="metric">Raw evidence <strong>PRESERVED</strong></div>
+<div class="metric">Signature authentication <strong>NOT PERFORMED IN QUARANTINE</strong></div>
+<div class="metric">Source ancestry <strong id="ancestry">UNVERIFIED</strong></div>
+<div class="metric">Conflict packet <strong id="conflict">NO CONFLICT DISPLAYED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="fork">Simulate contradictory heads</button><button id="copy">Simulate shared ancestry</button><button id="reset">Reset</button>
+<p class="muted" id="status" role="status">The source inspection remains provisional until independent provenance is authenticated.</p>
+<small>Animation only. These example witnesses are synthetic; this viewer does not verify an actual signature, publish a trusted export, or authenticate custodians.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("scene"),ctx=canvas.getContext("2d");let angle=0,mode=0;
+const vertices=Array.from({length:16},(_,n)=>[0,1,2,3].map(k=>(n>>k)&1?1:-1));const edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function set(m){mode=m;document.getElementById("conflict").textContent=m===1?"BATCH_EQUIVOCATION":"NO CONFLICT DISPLAYED";document.getElementById("ancestry").textContent=m===2?"DECLARED_SHARED_ANCESTRY":"UNVERIFIED";document.getElementById("status").textContent=m===1?"Both contradictory receipt claims retained. Clean export blocked.":m===2?"Two matching observations may share a single ancestor. Independence is NOT proven.":"The source inspection remains provisional until independent provenance is authenticated."}
+document.getElementById("fork").onclick=()=>set(1);document.getElementById("copy").onclick=()=>set(2);document.getElementById("reset").onclick=()=>set(0);
+function project(v){let[x,y,z,w]=v,a=angle,b=angle*.57;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.8/(4-w),g=2.4/(4.5-z*f);return[x*f*g,y*f*g]}
+function frame(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);canvas.width=Math.max(2,Math.round(r.width*d));canvas.height=Math.max(2,Math.round(r.height*d));ctx.setTransform(d,0,0,d,0,0);
+const W=r.width,H=r.height,scale=Math.min(W,H)*.27,p=vertices.map(project);ctx.fillStyle="#0b0c20";ctx.fillRect(0,0,W,H);
+for(const[i,j]of edges){const axis=Math.log2(i^j),color=(mode===1&&axis===3)?"#ff387e":(mode===2&&axis===1)?"#ff9c51":["#40ffe2","#b881ff","#ff9b55","#80c4ff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*scale,H/2+p[i][1]*scale);ctx.lineTo(W/2+p[j][0]*scale,H/2+p[j][1]*scale);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=16;ctx.lineWidth=axis===3?2.1:1.4;ctx.stroke()}ctx.shadowBlur=0;ctx.font="13px monospace";ctx.fillStyle=mode?"#ff9b71":"#afffef";ctx.fillText(mode===1?"CONFLICT → QUARANTINE, NEVER REWRITE":mode===2?"SAME ANCESTRY → NOT INDEPENDENT":"CLAIMS RETAINED · CUSTODY UNPROVEN",14,H-18);angle+=.006;requestAnimationFrame(frame)}frame();
+</script></body></html>
