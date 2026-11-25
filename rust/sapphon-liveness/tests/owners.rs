@@ -64,7 +64,7 @@ impl Drop for Fixture{fn drop(&mut self){let _=fs::remove_dir_all(&self.root);}}
 }
 #[test]fn journal_change_after_acquisition_is_fenced(){
  let f=Fixture::new();let(mut child,ready)=f.start("hold");
- fs::write(f.root.join("journal.json"),b"{} ").unwrap();
+ let file=f.root.join("journal.json"); let mut original=fs::read(&file).unwrap(); original.push(32); fs::write(&file,original).unwrap();
  assert_eq!(qualify(&f.root).unwrap_err().0,"OWNER_JOURNAL_CONFLICT");
  child.kill().unwrap();child.wait().unwrap();f.clear(&ready);
 }
