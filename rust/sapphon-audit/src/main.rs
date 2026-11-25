@@ -10,10 +10,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     let journal: Journal = serde_json::from_slice(&fs::read(&args[1])?)?;
     let bytes = hex::decode(&args[5])?;
-    let key: [u8; 32] = bytes.try_into().map_err(|_| "Ed25519 public key must be 32 raw bytes (64 hex chars)")?;
-    let pins: PinRegistry = BTreeMap::from([(args[2].clone(), PublisherPin {
-        control_root: args[4].clone(), public_key: key, revoked: false,
-    })]);
+    let key: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| "Ed25519 public key must be 32 raw bytes (64 hex chars)")?;
+    let pins: PinRegistry = BTreeMap::from([(
+        args[2].clone(),
+        PublisherPin {
+            control_root: args[4].clone(),
+            public_key: key,
+            revoked: false,
+        },
+    )]);
     journal.validate(&pins)?;
     let generation = args[3].parse::<u64>()?;
     let result = journal.assess(&args[2], generation, &args[6..], &pins)?;
