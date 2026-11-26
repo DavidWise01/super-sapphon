@@ -1,0 +1,45 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-156 · Dual Evidence Custody</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 20%,#34204e,#080a1a 75%);color:#f2ecff;font:15px system-ui,sans-serif}
+header{padding:25px 5vw;border-bottom:1px solid #775b9a}h1{font-size:clamp(24px,3vw,40px);margin:7px 0;text-shadow:0 0 20px #b67dffad}
+main{max-width:1460px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px}
+.panel{background:#15112bde;border:1px solid #6e5496;border-radius:16px;overflow:hidden;box-shadow:0 0 32px #5d37865c}canvas{width:100%;height:470px;display:block}
+.side{padding:19px}.metric{padding:12px;margin:9px 0;border:1px solid #5d4473;border-radius:9px;background:#17122e}strong{color:#48ffe1}
+.hold{color:#ff9f65;font-size:32px;font-weight:900;text-shadow:0 0 20px #ff773c85}
+button{background:#3b2653;color:#fff;border:1px solid #bd91e0;padding:10px 11px;border-radius:8px;cursor:pointer;margin:4px}
+.muted,small{color:#c5b7d2}footer{text-align:center;color:#bdb0d1;padding:23px}code{color:#aeffea}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:330px}}
+</style></head><body><header>
+<small>PHASE XIV · 4 / 8 · 50% DESIGN · SYNTHETIC ACQUISITION LAB</small>
+<h1>SAPPHON-156 · Dual Evidence Custody</h1>
+<div class="muted">Two views of one source ≠ two witnesses · 4D shadow tesseract · neon provenance fibers</div>
+</header><main><section class="panel"><canvas id="field" aria-label="Animated neon 4D shadow tesseract indicating diverging or shared evidence ancestry"></canvas></section>
+<section class="panel side">
+<div class="metric">First source <strong>GITHUB ACTIONS ANCESTRY</strong></div>
+<div class="metric">Second source <strong id="root">CLAIMED EXTERNAL ROOT</strong></div>
+<div class="metric">Receipt comparison <strong id="finding">MATCHING CLAIMS · UNQUALIFIED</strong></div>
+<div class="metric">Independent physical custody <strong>NOT AUTHENTICATED</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="distinct">Distinct claims</button><button id="mirror">GitHub mirror</button><button id="diverge">Conflicting bytes</button><button id="replay">Reused acquisition</button>
+<p id="note" class="muted" role="status">Matching digests do not independently authenticate the source of either receipt.</p>
+<small>All witness receipts and provenance rays shown here are synthetic. No GitHub API, external custodian or cryptographic signature is authenticated by this viewer.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let tick=0,mode=0;
+const scenarios=[
+["CLAIMED EXTERNAL ROOT","MATCHING CLAIMS · UNQUALIFIED","Matching digests do not independently authenticate the source of either receipt."],
+["GITHUB MIRROR","SHARED SOURCE ANCESTRY","Two GitHub-hosted copies are not independent custodians."],
+["CLAIMED EXTERNAL ROOT","CONFLICTING ARTIFACT DIGEST","Differing digest claims must be retained as a conflict."],
+["REUSED ACQUISITION ID","ONE ACQUISITION REPLAYED","The same receipt cannot vote twice by changing its display name."]
+];
+function choose(i){mode=i;document.getElementById("root").textContent=scenarios[i][0];document.getElementById("finding").textContent=scenarios[i][1];document.getElementById("note").textContent=scenarios[i][2]}
+for(const [id,i] of [["distinct",0],["mirror",1],["diverge",2],["replay",3]])document.getElementById(id).onclick=()=>choose(i);
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=tick*.0059,b=tick*.0035;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),g=2.48/(4.4-z*f);return[x*f*g,y*f*g]}
+function render(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#09091f";ctx.fillRect(0,0,W,H);
+const s=Math.min(W,H)*.28,p=vertices.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),color=(mode===2&&axis===3)?"#ff3e79":(mode===1&&axis===1)?"#ffab70":(mode===3&&axis===0)?"#ff5577":["#38ffe0","#bc87ff","#ffa76c","#8abfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*s,H/2+p[i][1]*s);ctx.lineTo(W/2+p[j][0]*s,H/2+p[j][1]*s);ctx.lineWidth=axis===3?2.25:1.4;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=17;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffb48d":"#b1ffed";ctx.fillText(["MATCHING CLAIMS ≠ INDEPENDENT CUSTODY","MIRRORED SOURCE → HOLD","CONFLICTING DIGESTS → HOLD","REPLAYED RECEIPT → HOLD"][mode],15,H-20);
+tick++;requestAnimationFrame(render)}render();
+</script></body></html>
