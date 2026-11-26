@@ -42,4 +42,18 @@ class T(unittest.TestCase):
   with self.assertRaises(ValueError):m.choose([],"invalid")
  def test_excerpt_bounded(self):
   self.assertLessEqual(len(m.redacted("a"*40000)),m.MAX_CHARS)
+ def test_green_job_with_failed_step_denied(self):
+  j=job()
+  j["steps"][0]["conclusion"]="failure"
+  result=m.classify(row(),[j])
+  self.assertFalse(result["source_owned_success_observed"])
+  self.assertEqual(result["failures"][0]["failed_steps"][0]["name"],"cargo test")
+ def test_secret_entire_input_redacted_before_bounding(self):
+  original="A"*(m.MAX_CHARS-15)+" Authorization: SECRET123_AFTER_EDGE"
+  red=m.redacted(original)
+  self.assertNotIn("SECRET123_AFTER_EDGE",red)
+  self.assertLessEqual(len(red),m.MAX_CHARS)
+ def test_green_run_with_cancelled_step_denied(self):
+  j=job();j["steps"][0]["conclusion"]="cancelled"
+  self.assertFalse(m.classify(row(),[j])["source_owned_success_observed"])
 if __name__=="__main__":unittest.main()
