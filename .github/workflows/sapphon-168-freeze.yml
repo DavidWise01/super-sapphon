@@ -1,0 +1,169 @@
+name: SAPPHON-168 Phase XV Final Qualification Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-168-freeze.yml'
+      - 'docs/sapphon/phase-xv/168/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  final-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust typecheck and Phase XV regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: All 188 historical frozen source files unchanged
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  assert path not in seen,('duplicate frozen file',path)
+                  seen.add(path)
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expected['bytes'],('size',path)
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],('digest',path)
+          assert len(seen)==188,len(seen)
+          print('PASS 188/188 inherited frozen source files')
+          PY
+      - name: Produce exact Phase XV GitHub-owned source manifest
+        id: source
+        continue-on-error: true
+        env:
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          paths={
+            161:'rust/sapphon-liveness/src/diagnostic161.rs',
+            162:'rust/sapphon-liveness/src/triage162.rs',
+            163:'rust/sapphon-liveness/src/parity163.rs',
+            164:'tools/sapphon_164_pages_parity.py',
+            165:'tools/sapphon_165_lock_inspect.py',
+            166:'rust/sapphon-liveness/src/candidate166.rs',
+            167:'rust/sapphon-liveness/src/promotion167.rs',
+            168:'rust/sapphon-liveness/src/freeze168.rs'}
+          sources=[]
+          for bound,path in paths.items():
+              b=pathlib.Path(path).read_bytes()
+              sources.append({'bound':bound,'path':path,
+                 'bytes':len(b),'sha256':hashlib.sha256(b).hexdigest(),
+                 'source_ancestry':'github-owned-corpus'})
+          lock=pathlib.Path('package-lock.json').read_bytes()
+          l=json.loads(lock)
+          qualified=all(l.get('packages',{}).get('node_modules/'+p,{}).
+            get('integrity','').startswith('sha512-') for p in ('playwright','playwright-core'))
+          r={'schema':'sapphon-168-source-freeze-inventory-v1',
+             'repo':'DavidWise01/super-sapphon',
+             'commit':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+             'attempt':os.environ['GH_ATTEMPT'],'phase':15,
+             'design_percent':100,'sources':sources,
+             'committed_lock_sha256':hashlib.sha256(lock).hexdigest(),
+             'committed_lock_integrity_fields_present':qualified,
+             'committed_lock_qualified':False,
+             'global_anti_rollback_authenticated':False,
+             'external_custody_authenticated':False,
+             'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/168-source-inventory.json').write_text(
+             json.dumps(r,indent=2,sort_keys=True)+'\n')
+          print('Source inventory entries:',len(sources),
+                'lock SHA512 fields:',qualified)
+          PY
+      - name: Run offline lock-review adversarial controls
+        id: controls
+        continue-on-error: true
+        run: |
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Observe current committed lock limitations
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/168-committed-lock-inspection.json
+      - name: Four deployed Pages assets compared to exact revision
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}'
+      - name: Retain all check outcomes without trust promotion
+        if: always()
+        env:
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          SOURCE: ${{ steps.source.outcome }}
+          CONTROLS: ${{ steps.controls.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          checks=('RUST','FROZEN','SOURCE','CONTROLS','LOCK','PARITY')
+          out={'schema':'sapphon-168-qualification-observations-v1',
+               'source_commit':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+               'attempt':os.environ['GH_ATTEMPT'],
+               'outcomes':{k:os.environ[k] for k in checks},
+               'source_design_complete':True,
+               'independent_custody_authenticated':False,
+               'global_anti_rollback_authenticated':False,
+               'authenticated_utc':False,'key_rotation_authorized':False,
+               'recovery_authorized':False,'lock_cleared':False,
+               'decision':'DESIGN_COMPLETE_QUALIFICATION_HOLD'}
+          pathlib.Path('qualification-artifact/168-qualification.json').write_text(
+             json.dumps(out,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Always upload owned evidence and failure findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-168-phase-xv-source-freeze
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail CI when any required check fails, never authorize recovery
+        if: always()
+        env:
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          SOURCE: ${{ steps.source.outcome }}
+          CONTROLS: ${{ steps.controls.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for name in RUST FROZEN SOURCE CONTROLS LOCK PARITY; do
+            if [[ "${!name}" != success ]]; then
+              echo "::error::$name = ${!name}. Phase XV qualification HOLD."
+              exit 1
+            fi
+          done
+          echo "Source-owned checks passed in this run only; external custody and recovery HOLD."
