@@ -14,7 +14,7 @@ import sys
 REPO="DavidWise01/super-sapphon"
 SHA=re.compile(r"^[a-f0-9]{40}$")
 ALLOWED={"success","failure","cancelled","skipped","timed_out","action_required","neutral",None}
-def analyze(runs, expected_sha):
+def analyze(runs, expected_sha, expected_job="final-freeze"):
     out={"schema":"sapphon-169-run-triage-v1","expected_sha":expected_sha,
          "status":"NO_MATCHING_RUN","runs":[],"failed_jobs":[],"incomplete_runs":[],
          "completed_success_observed":False,"independent_custody_proven":False,
@@ -22,6 +22,8 @@ def analyze(runs, expected_sha):
          "decision":"RUNTIME_EVIDENCE_HOLD"}
     if not SHA.fullmatch(expected_sha):
         raise ValueError("bad pinned SHA")
+    if expected_job not in ("final-freeze","runtime-evidence","deterministic-diagnostics"):
+        raise ValueError("unknown required job")
     matches=[r for r in runs if r.get("head_sha")==expected_sha]
     for r in matches:
         item={"run_id":r.get("id"),"attempt":r.get("run_attempt"),
@@ -56,11 +58,10 @@ def analyze(runs, expected_sha):
     newest=max(out["runs"],key=lambda r:(r["run_id"],r["attempt"]))
     out["selected_run_id"]=newest["run_id"]
     out["selected_attempt"]=newest["attempt"]
-    expected_job="final-freeze"
     out["required_job_present"]=any(j["name"]==expected_job for j in newest["jobs"])
     out["completed_success_observed"]=(
         newest["status"]=="completed" and newest["conclusion"]=="success"
-        and out["required_job_present"]
+        and out["required_job_present"] and bool(newest["jobs"])
         and all(j["conclusion"]=="success" for j in newest["jobs"])
     )
     return out
@@ -94,13 +95,16 @@ def main():
     p.add_argument("--fixture",help="offline JSON input for deterministic diagnostics")
     p.add_argument("--out",default="qualification-artifact/169-run-triage.json")
     a=p.parse_args()
-    if a.workflow not in ("sapphon-168-freeze.yml","sapphon-169-triage.yml"):p.error("unknown workflow")
+    job_by_workflow={"sapphon-168-freeze.yml":"final-freeze",
+                     "sapphon-169-triage.yml":"runtime-evidence",
+                     "sapphon-170-isolation.yml":"deterministic-diagnostics"}
+    if a.workflow not in job_by_workflow:p.error("unknown workflow")
     try:
         if a.fixture:
             runs=json.loads(pathlib.Path(a.fixture).read_text())
         else:
             runs=fetch_runs(REPO,a.workflow,a.sha)
-        result=analyze(runs,a.sha)
+        result=analyze(runs,a.sha,job_by_workflow[a.workflow])
     except Exception as exc:
         result={"schema":"sapphon-169-run-triage-v1","expected_sha":a.sha,
             "status":"READBACK_UNAVAILABLE","error":type(exc).__name__+": "+str(exc)[:500],
