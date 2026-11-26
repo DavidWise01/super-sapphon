@@ -6,6 +6,7 @@ use sha2::{Digest,Sha256};
 use std::{collections::BTreeSet,fs::{File,OpenOptions},io::Write,path::Path};
 pub const AUTHORITY:&str="HOLD";
 const BOUNDS:[u16;8]=[169,170,171,172,173,174,175,176];
+const CANONICAL:[&str;8]=["runtime169.rs","isolate170.rs","joblog171.rs","reconcile172.rs","steps173.rs","outcomes174.rs","runner175.rs","freeze176.rs"];
 fn hash(b:&[u8])->String{hex::encode(Sha256::digest(b))}
 fn sha64(s:&str)->bool{s.len()==64&&s.bytes().all(|c|c.is_ascii_digit()||(b'a'..=b'f').contains(&c))}
 fn sha40(s:&str)->bool{s.len()==40&&s.bytes().all(|c|c.is_ascii_digit()||(b'a'..=b'f').contains(&c))}
@@ -32,8 +33,7 @@ pub fn evaluate(x:&Input)->Result<Freeze,Error>{
  let mut seen=BTreeSet::new();
  for (index,item) in sorted.iter().enumerate(){
    if item.bound!=BOUNDS[index]||!seen.insert(item.bound)||!sha64(&item.sha256)
-      ||!item.path.starts_with("rust/sapphon-liveness/src/")
-      ||!item.path.ends_with(".rs")||item.path.contains(".."){
+      ||item.path!=format!("rust/sapphon-liveness/src/{}",CANONICAL[index]){
       return Err(Error("FREEZE176_SOURCE"));
    }
  }
@@ -81,7 +81,7 @@ mod tests{
  use super::*;
  fn sample()->Input{Input{commit:"a".repeat(40),
   sources:BOUNDS.iter().map(|n|Source{bound:*n,
-    path:format!("rust/sapphon-liveness/src/test{n}.rs"),sha256:"b".repeat(64)}).collect(),
+    path:format!("rust/sapphon-liveness/src/{}",CANONICAL[(n-169) as usize]),sha256:"b".repeat(64)}).collect(),
   rust_ci:"not_observed".into(),python_ci:"not_observed".into(),
   historical_188:"not_observed".into(),npm_lock:"failure".into(),
   pages:"not_observed".into(),external_custody:"not_observed".into()}}
@@ -93,6 +93,9 @@ mod tests{
  #[test]fn missing_bound_rejected(){let mut x=sample();x.sources.pop();
   assert_eq!(evaluate(&x).unwrap_err().0,"FREEZE176_INPUT");}
  #[test]fn duplicate_source_rejected(){let mut x=sample();x.sources[1]=x.sources[0].clone();
+  assert_eq!(evaluate(&x).unwrap_err().0,"FREEZE176_SOURCE");}
+ #[test]fn substituted_source_path_rejected(){let mut x=sample();
+  x.sources[0].path="rust/sapphon-liveness/src/wrong.rs".into();
   assert_eq!(evaluate(&x).unwrap_err().0,"FREEZE176_SOURCE");}
  #[test]fn forged_status_rejected(){let mut x=sample();x.rust_ci="independently passed".into();
   assert_eq!(evaluate(&x).unwrap_err().0,"FREEZE176_STATUS");}
