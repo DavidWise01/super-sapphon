@@ -1,0 +1,156 @@
+name: SAPPHON-167 Controlled Lock Candidate Promotion Review
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_167_promotion_review.py'
+      - 'tools/test_sapphon_167_promotion.py'
+      - '.github/workflows/sapphon-167-promotion.yml'
+      - 'docs/sapphon/phase-xv/167/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  promotion-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Offline candidate promotion negative controls
+        id: tests
+        continue-on-error: true
+        run: python3 tools/test_sapphon_167_promotion.py
+      - name: Obtain actual SAPPHON-165 pinned run artifact
+        id: intake
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_166_artifact_intake.py
+      - name: Source-owned SAPPHON-166 review of candidate evidence
+        id: predecessor_review
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          test '${{ steps.intake.outcome }}' = success
+          python3 - <<'PY'
+          import pathlib,json,subprocess
+          base=pathlib.Path("qualification-artifact/165-intake")
+          read=json.loads(pathlib.Path("qualification-artifact/166-artifact-intake.json").read_text())
+          subprocess.run(["python3","tools/sapphon_166_candidate_review.py",
+             "--candidate",str(base/"165-registry-candidate-package-lock.json"),
+             "--summary",str(base/"165-run-summary.json"),
+             "--inspection",str(base/"165-registry-candidate-inspection.json"),
+             "--commit",read["expected_commit"],
+             "--run",str(read["run_id"]),"--attempt",str(read["attempt"])],check=True)
+          PY
+      - name: Review candidate without mutating committed package-lock
+        id: promotion
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          test '${{ steps.predecessor_review.outcome }}' = success
+          python3 - <<'PY'
+          import pathlib,subprocess,os
+          base=pathlib.Path("qualification-artifact/165-intake")
+          cmd=["python3","tools/sapphon_167_promotion_review.py",
+             "--candidate",str(base/"165-registry-candidate-package-lock.json"),
+             "--summary",str(base/"165-run-summary.json"),
+             "--inspection",str(base/"165-registry-candidate-inspection.json"),
+             "--intake","qualification-artifact/166-artifact-intake.json",
+             "--review","qualification-artifact/166-candidate-review.json",
+             "--head",os.environ["GITHUB_SHA"]]
+          subprocess.run(cmd,check=True)
+          PY
+          git diff --exit-code -- package-lock.json
+      - name: Run Rust full inherited regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Exact historical 188 file integrity gate
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          paths=('docs/sapphon/SAPPHON-096-FREEZE.json',
+                 'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+                 'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+                 'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+                 'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for p in paths:
+              for name,metadata in json.loads(pathlib.Path(p).read_text())['files'].items():
+                  assert name not in seen,('duplicate',name)
+                  seen.add(name)
+                  body=pathlib.Path(name).read_bytes()
+                  assert len(body)==metadata['bytes'],name
+                  assert hashlib.sha256(body).hexdigest()==metadata['sha256'],name
+          assert len(seen)==188,len(seen)
+          print('PASS 188/188 historical immutable declarations')
+          PY
+      - name: Four prior Pages assets must match current commit
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}'
+      - name: Preserve all step outcomes
+        if: always()
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          INTAKE: ${{ steps.intake.outcome }}
+          PREDECESSOR_REVIEW: ${{ steps.predecessor_review.outcome }}
+          PROMOTION: ${{ steps.promotion.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('TESTS','INTAKE','PREDECESSOR_REVIEW','PROMOTION','RUST','FROZEN','PARITY')
+          record={'schema':'sapphon-167-owned-evidence-v1',
+            'commit_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':{k:os.environ[k] for k in keys},
+            'source_lock_replaced':False,'external_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/167-outcomes.json').write_text(
+              json.dumps(record,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload candidate diagnostics on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-167-promotion-review
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail closed when a required observation is absent
+        if: always()
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          INTAKE: ${{ steps.intake.outcome }}
+          PREDECESSOR_REVIEW: ${{ steps.predecessor_review.outcome }}
+          PROMOTION: ${{ steps.promotion.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for stage in TESTS INTAKE PREDECESSOR_REVIEW PROMOTION RUST FROZEN PARITY; do
+            if [[ "${!stage}" != success ]]; then
+              echo "::error::$stage = ${!stage}; LOCK_PROMOTION_HOLD"
+              exit 1
+            fi
+          done
+          echo "Candidate review observations only. Lock remains unmodified, external custody and recovery HOLD."
