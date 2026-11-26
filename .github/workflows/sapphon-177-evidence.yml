@@ -1,0 +1,148 @@
+name: SAPPHON-177 Evidence-First CI Recovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_177_*.py'
+      - 'tools/sapphon_176_*.py'
+      - 'tools/sapphon_171_job_logs.py'
+      - '.github/workflows/sapphon-177-evidence.yml'
+      - 'docs/sapphon/phase-xvii/177/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  executable-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python tests, including frozen-source status regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_177_evidence.py
+          python3 tools/test_sapphon_176_freeze.py
+          python3 tools/test_sapphon_175_observed.py
+          python3 tools/test_sapphon_171_job_logs.py
+          python3 tools/test_sapphon_174_outcomes.py
+          python3 tools/test_sapphon_173_critical_steps.py
+          python3 tools/test_sapphon_172_reconcile.py
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Rust typecheck and inherited suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Recheck 188 immutable historical source files
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for f in manifests:
+            for path,meta in json.loads(pathlib.Path(f).read_text())['files'].items():
+              assert path not in seen,('duplicate',path)
+              seen.add(path);b=pathlib.Path(path).read_bytes()
+              assert len(b)==meta['bytes'],('length',path)
+              assert hashlib.sha256(b).hexdigest()==meta['sha256'],('sha256',path)
+          assert len(seen)==188,len(seen)
+          print('188 historical frozen source digests passed')
+          PY
+      - name: Fetch exact Phase XVI final job and attempt evidence
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha f17b3d6c437da7f82240fffae703dfbde61a215b \
+            --workflow sapphon-176-freeze.yml \
+            --required-job final-evidence \
+            --out qualification-artifact/177-predecessor.json
+      - name: Adjudicate critical source-owned observations
+        id: review
+        continue-on-error: true
+        run: |
+          python3 tools/sapphon_177_evidence.py \
+             --input qualification-artifact/177-predecessor.json \
+             --out qualification-artifact/177-adjudication.json
+      - name: Inspect provisional npm lock without modifying it
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/177-lock.json
+      - name: Check exact-source Pages parity
+        id: pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/177-pages.json
+      - name: Preserve source diagnostics separately from authority
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          REVIEW: ${{ steps.review.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PAGES: ${{ steps.pages.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('PYTHON','RUST','FROZEN','PREDECESSOR','REVIEW','LOCK','PAGES')
+          results={k:os.environ[k] for k in keys}
+          data={'schema':'sapphon-177-evidence-first-run-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':results,
+            'source_owned_diagnostics_pass':all(results[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'full_qualification':False,'independent_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'authenticated_utc':False,'recovery_authorized':False,
+            'lock_cleared':False,'decision':'EVIDENCE_FIRST_HOLD'}
+          pathlib.Path('qualification-artifact/177-summary.json').write_text(json.dumps(data,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload diagnostic artifacts regardless of failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-177-evidence-first-diagnostics
+          path: qualification-artifact/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail diagnostics on any source-execution or frozen-hash failure
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for check in PYTHON RUST FROZEN; do
+            if [[ "${!check}" != success ]]; then
+              echo "::error::$check = ${!check}; source qualification HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned tests may pass; external custody and recovery HOLD."
