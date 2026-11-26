@@ -1,0 +1,88 @@
+name: SAPPHON-153 Phase XIV Reproducible Qualification Evidence
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-153-qualification.yml'
+      - 'docs/sapphon/phase-xiv/153/**'
+permissions:
+  contents: read
+jobs:
+  qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust liveness qualification and inherited adversarial tests
+        run: cargo test --locked --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery journal contention and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Validate 188 historical source freezes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          count=0
+          for m in manifests:
+              for name,expected in json.loads(pathlib.Path(m).read_text())['files'].items():
+                  data=pathlib.Path(name).read_bytes()
+                  assert len(data)==expected['bytes'],name
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],name
+                  count+=1
+          assert count==188,count
+          print(f'PASS {count}/188 historical frozen files')
+          PY
+      - name: Source-level authority HOLD assertions
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/qualification153.rs').read_text()
+          for term in ('pub const AUTHORITY:&str="HOLD"',
+            'witnessed_ci_pass:false','witnessed_hash_pass:false',
+            'independent_custody_authenticated:false',
+            'global_anti_rollback_authenticated:false',
+            'recovery_authorized:false','lock_cleared:false',
+            'OBSERVATION_ONLY_HOLD'):
+              assert term in s,term
+          print('PASS source HOLD constraints')
+          PY
+      - name: Build Rust docs
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Write CI-origin report (still not independent custody)
+        env:
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          result=dict(schema="sapphon-153-actions-run-v1",
+              repository=os.environ['GH_REPO'],
+              git_commit=os.environ['GH_SHA'],
+              run_id=os.environ['GH_RUN'],
+              run_attempt=os.environ['GH_ATTEMPT'],
+              rust_tests="completed_prior_steps",
+              historical_188_hashes="completed_prior_steps",
+              independent_custody_authenticated=False,
+              recovery_authority="HOLD")
+          pathlib.Path('qualification-artifact/ci-claim.json').write_text(
+              json.dumps(result,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload run-scoped qualification artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-153-ci-claim
+          path: qualification-artifact/ci-claim.json
+          retention-days: 30
