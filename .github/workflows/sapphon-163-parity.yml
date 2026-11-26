@@ -1,0 +1,147 @@
+name: SAPPHON-163 Pinned Browser & Deployed Byte Parity
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_163_pages_parity.py'
+      - '.github/workflows/sapphon-163-parity.yml'
+      - 'docs/sapphon/phase-xv/163/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  revision-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust typecheck and full inherited tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 immutable historical source hashes
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          paths=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for m in paths:
+              for p,expected in json.loads(pathlib.Path(m).read_text())['files'].items():
+                  assert p not in seen,('duplicate',p)
+                  seen.add(p)
+                  b=pathlib.Path(p).read_bytes()
+                  assert len(b)==expected['bytes'],('bytes',p)
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],('sha256',p)
+          assert len(seen)==188,len(seen)
+          print('PASS 188 / 188 historical file checks')
+          PY
+      - name: Pin Playwright release and verify runtime installed version
+        id: playwright
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock --ignore-scripts playwright@1.65.1
+          node -e "if(require('playwright/package.json').version!=='1.65.1')process.exit(1)"
+          npx --no-install playwright install --with-deps chromium
+          node tools/sapphon_162_browser.cjs
+      - name: Compare three deployed Pages assets against exact run commit
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          python3 tools/sapphon_163_pages_parity.py --commit "$GH_SHA"
+      - name: GitHub API readback of predecessor run conclusions
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib,subprocess
+          repo=os.environ['GH_REPO']
+          out={'schema':'sapphon-163-predecessor-v1','repository':repo,
+               'status':'NOT_OBSERVED','authority':'HOLD',
+               'external_custody_authenticated':False}
+          try:
+              r=subprocess.run(['gh','api',f'repos/{repo}/actions/workflows/sapphon-162-acceptance.yml/runs?per_page=10'],
+                   capture_output=True,text=True,check=True)
+              runs=json.loads(r.stdout)['workflow_runs']
+              if runs:
+                  run=runs[0]
+                  out['status']='GITHUB_API_RUN_OBSERVED'
+                  out['run_id']=run['id'];out['head_sha']=run['head_sha']
+                  out['conclusion']=run.get('conclusion');out['attempt']=run.get('run_attempt')
+                  jobs=subprocess.run(['gh','api',f'repos/{repo}/actions/runs/{run["id"]}/jobs?per_page=100'],
+                       capture_output=True,text=True,check=True)
+                  out['jobs']=[{'name':j['name'],'status':j['status'],
+                      'conclusion':j.get('conclusion'),
+                      'steps':[{'name':s['name'],'conclusion':s.get('conclusion')} for s in j.get('steps',[])]}
+                      for j in json.loads(jobs.stdout)['jobs']]
+          except Exception as e:out['error']=str(e)[:600]
+          pathlib.Path('qualification-artifact/163-predecessor.json').write_text(
+             json.dumps(out,indent=2,sort_keys=True)+'\n')
+          print(out['status'],out.get('conclusion'))
+          PY
+      - name: Record every check without external custody claims
+        if: always()
+        env:
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PLAYWRIGHT: ${{ steps.playwright.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          d={'schema':'sapphon-163-run-summary-v1',
+             'commit_sha':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+             'outcomes':{x:os.environ[x] for x in ('RUST','FROZEN','PLAYWRIGHT','PARITY','PREDECESSOR')},
+             'external_custody_authenticated':False,
+             'anti_rollback_authenticated':False,'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/163-summary.json').write_text(json.dumps(d,indent=2)+'\n')
+          PY
+      - name: Retain evidence on success or failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-163-revision-evidence
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail closed on any required qualification failure
+        if: always()
+        env:
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PLAYWRIGHT: ${{ steps.playwright.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for stage in RUST FROZEN PLAYWRIGHT PARITY; do
+            if [[ "${!stage}" != success ]]; then
+              echo "::error::$stage = ${!stage}"
+              exit 1
+            fi
+          done
+          echo "Source-owned tests and byte parity passed in this run; custody and recovery HOLD."
