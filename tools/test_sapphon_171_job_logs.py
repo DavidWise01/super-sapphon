@@ -98,4 +98,15 @@ class T(unittest.TestCase):
   picked,state,count=m.paged_runs("sapphon-174-outcomes.yml",SHA,max_pages=2,api_call=full)
   self.assertIsNone(picked)
   self.assertEqual(state,"RUN_SEARCH_INCOMPLETE_PAGE_CAP")
+ def test_unknown_step_conclusion_blocks(self):
+  j=job();j["steps"][0]["conclusion"]="awaiting"
+  x=m.classify(row(),[j])
+  self.assertFalse(x["source_owned_success_observed"])
+  self.assertEqual(x["unresolved_required_steps"][0]["conclusion"],"awaiting")
+ def test_in_progress_child_denies_parent_green(self):
+  j=job();j["steps"][0]["conclusion"]="in_progress"
+  self.assertFalse(m.classify(row(),[j])["source_owned_success_observed"])
+ def test_boolean_attempt_not_valid_run_id(self):
+  rows=[dict(row(),run_attempt=True)]
+  self.assertIsNone(m.choose(rows,SHA))
 if __name__=="__main__":unittest.main()
