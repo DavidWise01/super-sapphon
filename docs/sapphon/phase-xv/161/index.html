@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-161 · Qualification Diagnostics</title>
+<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 52% 18%,#362250,#09091b 76%);font:15px system-ui,sans-serif;color:#f5eeff}header{padding:24px 5vw;border-bottom:1px solid #795897}h1{font-size:clamp(24px,3vw,41px);margin:7px 0;text-shadow:0 0 23px #b786ffb7}main{max-width:1480px;padding:0 16px;margin:20px auto;display:grid;grid-template-columns:minmax(0,3fr) minmax(345px,2fr);gap:16px}.panel{border:1px solid #745894;border-radius:16px;overflow:hidden;background:#151129e3;box-shadow:0 0 31px #5732805e}canvas{width:100%;height:482px;display:block}.side{padding:19px}.metric{border:1px solid #634a7e;border-radius:9px;background:#1a1432;padding:11px;margin:9px 0}.green{color:#50ffe0}.orange{color:#ffac74}.hold{font-size:31px;color:#ffae78;font-weight:900;text-shadow:0 0 20px #ff733c80}button{border:1px solid #bb8fe1;border-radius:8px;color:white;background:#3c2756;margin:3px;padding:9px;cursor:pointer}.muted,small{color:#c6b6d6}footer{text-align:center;color:#bcacd1;padding:23px}code{color:#acffea}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:337px}}</style></head><body>
+<header><small>PHASE XV · BOUND 1/8 · 12.5% DESIGN · QUALIFICATION DIAGNOSTICS</small><h1>SAPPHON-161 · Reproducible CI Recovery</h1>
+<div class="muted">4D shadow tesseract · test, hash, browser, prove · observation only</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Four-dimensional neon tesseract simulation comparing success, failure, and missing CI results"></canvas></section>
+<section class="panel side"><div class="metric">Rust type-check <strong class="orange">RUN UNVERIFIED</strong></div><div class="metric">Historical source hashes <strong class="green">188 DECLARED</strong></div>
+<div class="metric">Browser execution <strong class="orange">RUN UNVERIFIED</strong></div>
+<div class="metric">Synthetic diagnostic <strong id="finding" class="green">OBSERVATIONS PENDING</strong></div>
+<div class="metric">Independent external custody <strong class="orange">UNQUALIFIED</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="neutral">No run readback</button><button id="compile">Rust compiler failure</button><button id="hash">Hash mismatch</button><button id="browser">Browser failure</button>
+<p class="muted" role="status" id="note">A commit exists, but a completed passing Actions run has not been authenticated here.</p>
+<small>All scenarios are synthetic. This page never asserts that CI or Chromium passed, and does not fetch live workflow results.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("scene"),ctx=canvas.getContext("2d");let frame=0,mode=0;
+const scenes=[["OBSERVATIONS PENDING","A commit exists, but a completed passing Actions run has not been authenticated here."],["RUST-CHECK:FAILED","Compiler failures must be retained and repaired before declaring tests passed."],["HISTORICAL-FREEZE:FAILED","One mismatched frozen byte invalidates the historical freeze check."],["BROWSER-SMOKE:FAILED","A deploy URL and a screenshot request do not guarantee an interactive working browser."]];
+function set(n){mode=n;document.getElementById("finding").textContent=scenes[n][0];document.getElementById("note").textContent=scenes[n][1]}
+for(const[id,n]of [["neutral",0],["compile",1],["hash",2],["browser",3]])document.getElementById(id).onclick=()=>set(n);
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=frame*.0059,b=frame*.0038;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.77/(4-w),g=2.49/(4.39-z*f);return[x*f*g,y*f*g]}
+function render(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#09091e";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.278,p=vertices.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),error=mode!==0&&axis===mode-1,color=error?"#ff4b75":["#34ffde","#b887ff","#ffa766","#89baff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.lineWidth=axis===3?2.35:1.4;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=18;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffb18a":"#b0ffea";ctx.fillText(["NO VERIFIED CI → HOLD","COMPILER FAIL → HOLD","HASH MISMATCH → HOLD","BROWSER FAIL → HOLD"][mode],15,H-20);frame++;requestAnimationFrame(render)}render();
+</script></body></html>
