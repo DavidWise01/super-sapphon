@@ -44,9 +44,16 @@ def classify(run,jobs,required=REQUIRED):
                  "conclusion":j.get("conclusion"),"failed_steps":failed_steps})
     names=[j.get("name") for j in jobs]
     out["required_job_present"]=required in names
+    required_jobs=[j for j in jobs if j.get("name")==required]
+    out["required_steps"]=[{"name":step.get("name"),"conclusion":step.get("conclusion")} for j in required_jobs for step in j.get("steps",[])]
+    out["required_steps_observed"]=bool(out["required_steps"])
+    out["unresolved_required_steps"]=[step for step in out["required_steps"] if step["conclusion"] in (None,"skipped","cancelled","timed_out","failure")]
+    out["required_job_unique"]=len(required_jobs)==1
     out["source_owned_success_observed"]=(run.get("status")=="completed"
         and run.get("conclusion")=="success"
-        and out["required_job_present"] and bool(jobs) and not any_failed_step
+        and out["required_job_present"] and out["required_job_unique"]
+        and out["required_steps_observed"] and not out["unresolved_required_steps"]
+        and bool(jobs) and not any_failed_step
         and all(j.get("conclusion")=="success" for j in jobs))
     out["status"]="LATEST_INCOMPLETE" if run.get("status")!="completed" else out["status"]
     if not out["required_job_present"]:out["status"]="REQUIRED_JOB_MISSING"
