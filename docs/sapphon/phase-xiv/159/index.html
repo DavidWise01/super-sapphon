@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAPPHON-159 · Signed Nonce Ledger</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 20%,#352351,#090a18 74%);color:#f2edff;font:15px system-ui,sans-serif}
+header{padding:25px 5vw;border-bottom:1px solid #725693}h1{margin:7px 0;font-size:clamp(24px,3vw,40px);text-shadow:0 0 20px #ba83ffaa}
+main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px}
+.panel{background:#14112bdc;border:1px solid #735695;border-radius:16px;overflow:hidden;box-shadow:0 0 35px #5c34875d}
+canvas{height:478px;width:100%;display:block}.side{padding:20px}.metric{border:1px solid #614b7b;background:#17122c;border-radius:9px;margin:10px 0;padding:12px}strong{color:#42ffe0}.hold{font-size:32px;font-weight:900;color:#ffa46e;text-shadow:0 0 22px #ff814b86}
+button{background:#392750;border:1px solid #b58cdf;border-radius:8px;padding:10px 12px;margin:4px;color:#fff;cursor:pointer}.muted,small{color:#c0b2d2}
+footer{text-align:center;padding:22px;color:#b8abd1}code{color:#b0ffeb}@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:337px}}
+</style></head><body><header><small>PHASE XIV · 7 OF 8 · 87.5% DESIGN · SYNTHETIC FORK LAB</small>
+<h1>SAPPHON-159 · Signed Nonce-Consumption Ledger</h1>
+<div class="muted">Independent pinned head → signed event chain → fork comparison · 4D neon shadow</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Animated neon shadow tesseract, with two history projections and conflicting fork scenarios"></canvas></section>
+<section class="panel side">
+<div class="metric">Historical reference <strong>EXTERNAL PIN REQUIRED</strong></div>
+<div class="metric">Signed nonce transition <strong>ED25519 CHAIN DESIGN</strong></div>
+<div class="metric">Fork classification <strong id="finding">MatchingHead</strong></div>
+<div class="metric">Independent custodian <strong>NOT AUTHENTICATED</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="match">Matching heads</button><button id="fork">Signed fork</button><button id="async">Different heights</button><button id="replay">Nonce replay</button>
+<p class="muted" id="note" role="status">Matching signed heads prove neither physical independence nor global anti-rollback.</p>
+<small>This page uses synthetic evidence. No external checkpoint, signature, GitHub Actions result, or real custodian is checked by the browser visualization.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const cv=document.getElementById("scene"),c=cv.getContext("2d");let t=0,mode=0;
+const states=[
+["MatchingHead","Matching signed heads prove neither physical independence nor global anti-rollback."],
+["EquivocationAtSameSequence","Two signatures at the same height disagree on their recorded history heads."],
+["DifferentUnqualifiedHeights","Different heights require prefix reconciliation, not automatic fork accusations."],
+["LEDGER159_NONCE_REPLAY","A previously consumed nonce is rejected; a copied local nonce ledger is not trusted custody."]
+];
+function set(n){mode=n;document.getElementById("finding").textContent=states[n][0];document.getElementById("note").textContent=states[n][1]}
+for(const[id,n]of [["match",0],["fork",1],["async",2],["replay",3]])document.getElementById(id).onclick=()=>set(n);
+const v=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(q){let[x,y,z,w]=q,a=t*.0057,b=t*.0038;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.82/(4-w),g=2.45/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){let r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);c.setTransform(d,0,0,d,0,0);c.fillStyle="#090a20";c.fillRect(0,0,W,H);let k=Math.min(W,H)*.279,points=v.map(project);
+for(const[i,j]of edges){let axis=Math.log2(i^j),conflict=mode===1&&axis===3||mode===2&&axis===1||mode===3&&axis===0,color=conflict?"#ff4a7c":["#38ffe3","#c18bff","#ffa46d","#89bdff"][axis];
+c.beginPath();c.moveTo(W/2+points[i][0]*k,H/2+points[i][1]*k);c.lineTo(W/2+points[j][0]*k,H/2+points[j][1]*k);c.strokeStyle=color;c.shadowColor=color;c.shadowBlur=18;c.lineWidth=axis===3?2.3:1.42;c.stroke()}
+c.shadowBlur=0;c.font="12px monospace";c.fillStyle=mode?"#ffb088":"#b1ffec";c.fillText(["MATCHING HEADS ≠ EXTERNAL PROOF","SIGNED FORK → HOLD","ASYNC HEIGHT ≠ FORK PROOF","NONCE REPLAY → REJECT"][mode],15,H-20);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
