@@ -77,6 +77,7 @@ def main():
       "sapphon-170-isolation.yml":("94188aa212cb2ae5d80ddc4c93ba0d71c6b81f2b","deterministic-diagnostics"),
       "sapphon-171-joblogs.yml":("9e7fc8ad8c3b05a3e12f1c3aa0c15b4c99c2e18e","diagnostics"),
       "sapphon-172-reconcile.yml":("496dec7bf5410baf031b0b7168ed2ac26311a181","diagnostic-reconciliation"),
+      "sapphon-173-steps.yml":("7e1be863797ddad3043e03074fc2375b9f760c74","critical-step-diagnostics"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
