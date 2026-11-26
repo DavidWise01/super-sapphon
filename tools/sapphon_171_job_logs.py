@@ -92,6 +92,7 @@ def main():
       "sapphon-173-steps.yml":("7e1be863797ddad3043e03074fc2375b9f760c74","critical-step-diagnostics"),
       "sapphon-174-outcomes.yml":("185802d4f10b496b899ab09551fe193b9ddd4a0d","source-outcomes"),
       "sapphon-175-readback.yml":("134dd02d0d6728abc27264548fed4c91a223e9e4","source-diagnostics"),
+      "sapphon-176-freeze.yml":("f17b3d6c437da7f82240fffae703dfbde61a215b","final-evidence"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
