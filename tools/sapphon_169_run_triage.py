@@ -51,10 +51,17 @@ def analyze(runs, expected_sha):
         out["runs"].append(item)
     if not matches:return out
     out["status"]="EXACT_RUN_OBSERVED"
-    out["completed_success_observed"]=any(
-       r["status"]=="completed" and r["conclusion"]=="success"
-       and r["jobs"] and all(j["conclusion"]=="success" for j in r["jobs"])
-       for r in out["runs"]
+    # Only the newest observed run/attempt may qualify. An older passing
+    # attempt must never mask a newer failed or still-running attempt.
+    newest=max(out["runs"],key=lambda r:(r["run_id"],r["attempt"]))
+    out["selected_run_id"]=newest["run_id"]
+    out["selected_attempt"]=newest["attempt"]
+    expected_job="final-freeze"
+    out["required_job_present"]=any(j["name"]==expected_job for j in newest["jobs"])
+    out["completed_success_observed"]=(
+        newest["status"]=="completed" and newest["conclusion"]=="success"
+        and out["required_job_present"]
+        and all(j["conclusion"]=="success" for j in newest["jobs"])
     )
     return out
 
