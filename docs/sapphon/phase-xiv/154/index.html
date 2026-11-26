@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-154 · Run Readback</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 22%,#302149,#080a18 73%);color:#f2eeff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #6d5491}h1{font-size:clamp(24px,3vw,39px);margin:7px 0;text-shadow:0 0 19px #ac7bff9c}
+main{max-width:1470px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:17px}
+.panel{border-radius:16px;background:#15112bd9;border:1px solid #69518c;overflow:hidden;box-shadow:0 0 30px #50327a55}canvas{height:465px;width:100%;display:block}.side{padding:20px}
+.metric{padding:12px;background:#17132e;border:1px solid #574470;border-radius:9px;margin:10px 0}strong{color:#44ffe3}
+.hold{font-size:31px;color:#ffa26c;font-weight:900;text-shadow:0 0 19px #ff7c4488}
+button{background:#36244f;border:1px solid #ae89d8;padding:9px 11px;border-radius:8px;color:#fff;margin:4px;cursor:pointer}small,.muted{color:#b8abcd}footer{text-align:center;color:#ad9fc5;padding:22px}code{color:#a8ffeb}
+@media(max-width:840px){main{grid-template-columns:1fr}canvas{height:338px}}
+</style></head><body>
+<header><small>PHASE XIV · 2 / 8 · 25% DESIGN · SYNTHETIC EVIDENCE</small>
+<h1>SAPPHON-154 · CI Run Readback Reconciliation</h1>
+<div class="muted">Commit × run × attempt × job × artifact · 4D neon shadow · authority gated</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Neon rotating tesseract illustrating CI run and artifact identity mismatch"></canvas></section>
+<section class="panel side">
+<div class="metric">Source qualification <strong>SNAPSHOT ONLY</strong></div>
+<div class="metric">Run comparison <strong id="state">VerifiedSnapshotConsistent</strong></div>
+<div class="metric">Live GitHub CI <strong>NOT VERIFIED HERE</strong></div>
+<div class="metric">Independent custody <strong>UNQUALIFIED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="ok">Matching snapshot</button><button id="commit">Wrong commit</button><button id="replay">Replayed artifact</button><button id="fail">Failed job</button>
+<p id="explain" class="muted" role="status">A matching supplied snapshot cannot prove its own GitHub provenance.</p>
+<small>This is a synthetic viewer. It makes no GitHub API calls and does not authenticate a real job, artifact, signer or external custodian.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";let t=0,mode=0;const cv=document.getElementById("field"),c=cv.getContext("2d");
+const labels=[
+["VerifiedSnapshotConsistent","A matching supplied snapshot cannot prove its own GitHub provenance."],
+["RUN154_IDENTITY_MISMATCH","An unexpected Git commit fails the identity comparison."],
+["ArtifactAbsentOrMismatched","An artifact from another run is not evidence for this run."],
+["IncompleteOrUnsuccessfulRun","A failed or incomplete job never becomes a passing job."]
+];
+function set(n){mode=n;document.getElementById("state").textContent=labels[n][0];document.getElementById("explain").textContent=labels[n][1]}
+for(const[id,n]of [["ok",0],["commit",1],["replay",2],["fail",3]])document.getElementById(id).onclick=()=>set(n);
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=t*.006,b=t*.0034;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.8/(4-w),g=2.4/(4.35-z*f);return[x*f*g,y*f*g]}
+function draw(){let r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);c.setTransform(d,0,0,d,0,0);c.fillStyle="#09091e";c.fillRect(0,0,W,H);
+let pts=vs.map(project),scale=Math.min(W,H)*.28;for(const[i,j]of edges){const axis=Math.log2(i^j),bad=mode>0&&axis===mode-1,col=bad?"#ff527b":["#3affe1","#be8eff","#ffa567","#86bfff"][axis];c.beginPath();c.moveTo(W/2+pts[i][0]*scale,H/2+pts[i][1]*scale);c.lineTo(W/2+pts[j][0]*scale,H/2+pts[j][1]*scale);c.strokeStyle=col;c.shadowColor=col;c.shadowBlur=18;c.lineWidth=axis===3?2.2:1.4;c.stroke()}c.shadowBlur=0;c.fillStyle=mode?"#ffb18c":"#aefeed";c.font="12px monospace";c.fillText(["SNAPSHOT MATCH ≠ CERTIFIED RUN","COMMIT MISMATCH → HOLD","REPLAYED ARTIFACT → HOLD","FAILED JOB → HOLD"][mode],14,H-18);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
