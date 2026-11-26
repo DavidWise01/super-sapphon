@@ -1,0 +1,29 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-163 · Pinned Revision Parity</title>
+<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 18%,#38244f,#080a1b 76%);color:#f3ecff;font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #785d96}h1{font-size:clamp(24px,3vw,40px);margin:7px 0;text-shadow:0 0 22px #b687ffb8}main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(340px,2fr);gap:17px}.panel{background:#15112add;border:1px solid #74579a;box-shadow:0 0 35px #5e378b5a;border-radius:16px;overflow:hidden}canvas{display:block;width:100%;height:477px}.side{padding:19px}.metric{background:#191330;border:1px solid #5c4575;border-radius:9px;padding:12px;margin:9px 0}strong{color:#46ffe1}.hold{font-size:32px;font-weight:900;color:#ffa96f;text-shadow:0 0 20px #ff80448c}button{color:#fff;background:#39264e;border:1px solid #b48dde;border-radius:8px;padding:10px 12px;cursor:pointer;margin:4px}.muted,small{color:#c8b9d5}footer{padding:23px;text-align:center;color:#c0b0d1}code{color:#b0ffee}@media(max-width:820px){main{grid-template-columns:1fr}canvas{height:336px}}</style></head>
+<body><header><small>PHASE XV · BOUND 3/8 · 37.5% DESIGN · SIMULATED REVISION LAB</small><h1>SAPPHON-163 · Pinned Pages Revision Parity</h1><div class="muted">Exact Git SHA · exact HTML bytes · Playwright 1.65.1 · 4D neon tesseract shadow</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Rotating neon 4D tesseract depicting deployed asset revision parity and mismatches"></canvas></section><section class="panel side">
+<div class="metric">Browser runner <strong>PLAYWRIGHT 1.65.1 PINNED</strong></div>
+<div class="metric">Source/Pages assets <strong>160 · 161 · 162</strong></div>
+<div class="metric">Real deployment parity <strong>NOT YET VERIFIED HERE</strong></div>
+<div class="metric">Synthetic scenario <strong id="state">MATCHING-BYTE HYPOTHESIS</strong></div>
+<div class="metric">Physical custody <strong>NOT AUTHENTICATED</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="match">Matching bytes</button><button id="stale">Stale Pages</button><button id="rewrite">Altered HTML</button><button id="missing">Unavailable asset</button>
+<p id="note" class="muted" role="status">Two GitHub-owned surfaces agreeing on bytes cannot establish external custody.</p>
+<small>This is a synthetic visualization. It performs no real GitHub API or deployed Pages fetch; those are executed by the source-owned CI workflow.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const cv=document.getElementById("field"),ctx=cv.getContext("2d");let tick=0,mode=0;
+const states=[["MATCHING-BYTE HYPOTHESIS","Two GitHub-owned surfaces agreeing on bytes cannot establish external custody."],
+["STALE PAGES REVISION","The deployed HTML digest differs from the file at the required Git commit."],
+["ALTERED HTML DETECTED","A mismatched byte invalidates exact source-to-deployment parity."],
+["SOURCE OR PAGE UNAVAILABLE","An API or Pages failure is a failed comparison, not a source pass."]];
+function choose(i){mode=i;document.getElementById("state").textContent=states[i][0];document.getElementById("note").textContent=states[i][1]}
+for(const[id,i]of [["match",0],["stale",1],["rewrite",2],["missing",3]])document.getElementById(id).onclick=()=>choose(i);
+const verts=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function p(q){let[x,y,z,w]=q,a=tick*.0058,b=tick*.0037;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.78/(4-w),g=2.48/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090b1f";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.278,v=verts.map(p);
+for(const[i,j]of edges){const axis=Math.log2(i^j),bad=mode&&axis===mode-1,col=bad?"#ff4d7a":["#37ffe0","#c18aff","#ffa76d","#8bc0ff"][axis];ctx.beginPath();ctx.moveTo(W/2+v[i][0]*k,H/2+v[i][1]*k);ctx.lineTo(W/2+v[j][0]*k,H/2+v[j][1]*k);ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=18;ctx.lineWidth=axis===3?2.3:1.45;ctx.stroke()}
+ctx.shadowBlur=0;ctx.fillStyle=mode?"#ffb18a":"#b2ffeb";ctx.font="12px monospace";ctx.fillText(["MATCHING SOURCE ≠ EXTERNAL ROOT","STALE REVISION → HOLD","ALTERED BYTES → HOLD","READBACK ERROR → HOLD"][mode],15,H-20);tick++;requestAnimationFrame(draw)}draw();
+</script></body></html>
