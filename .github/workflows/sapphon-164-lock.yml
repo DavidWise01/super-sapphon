@@ -1,0 +1,156 @@
+name: SAPPHON-164 Locked Browser and Four-Page Source Parity
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_164_*.py'
+      - '.github/workflows/sapphon-164-lock.yml'
+      - 'docs/sapphon/phase-xv/164/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reproducibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Validate lock tree and regenerate against registry
+        id: lock
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -e "if(require('playwright/package.json').version!=='1.65.1'||require('playwright-core/package.json').version!=='1.65.1')process.exit(1)"
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ! git diff --exit-code -- package-lock.json; then
+            echo "::error::Source lockfile differs from npm-regenerated registry metadata. Do not certify."
+            exit 1
+          fi
+          node - <<'JS'
+          const l=require('./package-lock.json');
+          for(const p of ['node_modules/playwright','node_modules/playwright-core']){
+            const x=l.packages[p];
+            if(!x||x.version!=='1.65.1'||!x.integrity?.startsWith('sha512-')){
+              throw Error('Verified npm integrity missing for '+p)
+            }
+          }
+          console.log('Playwright exact version and SHA512 package integrity confirmed');
+          JS
+      - name: Run inherited Rust checks
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify all 188 inherited frozen sources
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifest_paths=(
+            'docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifest_paths:
+              for path,item in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  assert path not in seen,('duplicate',path)
+                  seen.add(path)
+                  actual=pathlib.Path(path).read_bytes()
+                  assert len(actual)==item['bytes'],('size',path)
+                  assert hashlib.sha256(actual).hexdigest()==item['sha256'],('hash',path)
+          assert len(seen)==188,len(seen)
+          print('PASS all 188 historical source hashes')
+          PY
+      - name: Four Pages HTML assets must match exact commit
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}'
+      - name: Chromium interactive behavior under locked dependency
+        id: browser
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          test '${{ steps.lock.outcome }}' = success
+          npx --no-install playwright install --with-deps chromium
+          node tools/sapphon_162_browser.cjs
+      - name: Readback SAPPHON-163 exact commit and attempt
+        id: readback
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EXPECTED_COMMIT: 9bda0dfc5887c53223c6093851c39c09de930ac3
+          WORKFLOW_FILE: sapphon-163-parity.yml
+        run: python3 tools/sapphon_164_actions_readback.py
+      - name: Preserve diagnostics even on failure
+        if: always()
+        env:
+          LOCK: ${{ steps.lock.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+          READBACK: ${{ steps.readback.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          names=('LOCK','RUST','FROZEN','PARITY','BROWSER','READBACK')
+          record={
+            'schema':'sapphon-164-run-v1',
+            'commit':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+            'attempt':os.environ['GH_ATTEMPT'],
+            'step_outcomes':{n:os.environ[n] for n in names},
+            'external_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authority':'HOLD'
+          }
+          pathlib.Path('qualification-artifact/164-summary.json').write_text(json.dumps(record,indent=2)+'\n')
+          PY
+      - name: Upload all available run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-164-lock-parity-observations
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail when any required check lacks success
+        if: always()
+        env:
+          LOCK: ${{ steps.lock.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          BROWSER: ${{ steps.browser.outcome }}
+        run: |
+          for stage in LOCK RUST FROZEN PARITY BROWSER; do
+            if [[ "${!stage}" != success ]]; then
+              echo "::error::$stage = ${!stage}. HOLD."
+              exit 1
+            fi
+          done
+          echo "All GitHub-owned CI checks passed; independent custody and recovery HOLD."
