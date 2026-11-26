@@ -36,6 +36,8 @@ class FreezeTests(unittest.TestCase):
  def test_unsupported_status_rejected(self):
   r=self.case(lambda x:x[1].update(RUST="verified by magic"))
   self.assertIn("UNSUPPORTED_STATUS:RUST",r["findings"])
+  self.assertFalse(r["phase_design_complete"])
+  self.assertFalse(r["source_tests_recorded_pass"])
  def test_missing_integrity_visible(self):
   r=self.case(lambda x:x.__setitem__(3,b'{"packages":{}}'))
   self.assertIn("COMMITTED_NPM_LOCK_INTEGRITY_MISSING",r["findings"])
