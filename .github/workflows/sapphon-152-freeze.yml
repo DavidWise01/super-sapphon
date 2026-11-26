@@ -1,0 +1,62 @@
+name: SAPPHON-152 Phase XIII Final Freeze Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-152-freeze.yml'
+      - 'docs/sapphon/phase-xiii/152/**'
+permissions:
+  contents: read
+jobs:
+  final-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: All Phase XIII Rust modules and inherited liveness tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Recovery contention journal and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify exact 188 historic frozen source digests
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          count=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expected['bytes'],path
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],path
+                  count+=1
+          assert count==188,count
+          print(f'PASS {count}/188 inherited immutable hashes')
+          PY
+      - name: Enforce final freeze cannot claim external authority
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          source=Path('rust/sapphon-liveness/src/freeze152.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+                        'rust_ci_pass_confirmed:false',
+                        'historical_188_hash_pass_confirmed:false',
+                        'independent_custody_authenticated:false',
+                        'external_anti_rollback_authenticated:false',
+                        'recovery_authorized:false',
+                        'lock_cleared:false',
+                        'DESIGN_COMPLETE_QUALIFICATION_HOLD'):
+              assert token in source,token
+          print('PASS final HOLD source gates')
+          PY
+      - name: Build Rust API documentation
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
