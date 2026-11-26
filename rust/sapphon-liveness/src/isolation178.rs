@@ -39,7 +39,7 @@ pub fn isolate(x:&Input)->Result<Finding,Error>{
  if !x.run_success{blockers.push("RUN_NOT_SUCCESS".into());}
  if x.failed_child{blockers.push("FAILED_CHILD".into());}
  for (i,name) in REQUIRED.iter().enumerate(){
-  let matches=x.steps.iter().filter(|s|&s.name==name).collect::<Vec<_>>();
+  let matches=x.steps.iter().filter(|s|s.name.as_str()==*name).collect::<Vec<_>>();
   gates[i]=match matches.len(){
    0=>"NOT_OBSERVED".into(),1 if matches[0].conclusion=="success"=>"PASS".into(),
    1=>"FAIL_OR_INCOMPLETE".into(),_=>"DUPLICATE".into()};
