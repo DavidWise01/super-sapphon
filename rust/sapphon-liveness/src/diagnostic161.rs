@@ -59,7 +59,7 @@ pub fn diagnose(e:&Evidence)->Result<Diagnosis,Error>{
      _=>return Err(Error("DIAG161_CONCLUSION")),
    }
  }
- let missing=EXPECTED.iter().filter(|n|!seen.contains(**n))
+ let missing=EXPECTED.iter().filter(|n|!seen.contains(*n))
     .map(|n|(*n).to_string()).collect::<Vec<_>>();
  passed.sort();failed.sort();unknown.sort();
  let mut canonical=e.checks.clone();canonical.sort_by(|a,b|a.name.cmp(&b.name));
