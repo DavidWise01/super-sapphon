@@ -1,0 +1,135 @@
+name: SAPPHON-169 Runtime Evidence Priority & CI Triage
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_169_*.py'
+      - 'tools/test_sapphon_169_triage.py'
+      - '.github/workflows/sapphon-169-triage.yml'
+      - 'docs/sapphon/phase-xvi/169/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  runtime-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run source-owned deterministic evidence triage tests
+        id: controls
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Reconcile exact SAPPHON-168 workflow run, attempt and failed steps
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/sapphon_169_run_triage.py \
+            --sha '9df4a75761d005f8157b713aeff2dc96b61b7079' \
+            --out qualification-artifact/169-predecessor.json
+      - name: Run Rust typecheck and all inherited tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify all inherited frozen file bytes and SHA-256 values
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for mf in manifests:
+              for p,meta in json.loads(pathlib.Path(mf).read_text())['files'].items():
+                  assert p not in seen,('duplicated freeze entry',p)
+                  seen.add(p); data=pathlib.Path(p).read_bytes()
+                  assert len(data)==meta['bytes'],('size mismatch',p)
+                  assert hashlib.sha256(data).hexdigest()==meta['sha256'],('hash mismatch',p)
+          assert len(seen)==188,len(seen)
+          print('PASS all 188 frozen source entries')
+          PY
+      - name: Check committed npm lock against real integrity requirements
+        id: committed_lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/169-committed-lock.json
+      - name: Readback four existing Pages assets at this exact source SHA
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/169-pages-parity.json
+      - name: Retain factual outcomes on failure or success
+        if: always()
+        env:
+          CONTROLS: ${{ steps.controls.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          LOCK: ${{ steps.committed_lock.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          names=('CONTROLS','PREDECESSOR','RUST','FROZEN','LOCK','PARITY')
+          record={'schema':'sapphon-169-runtime-observation-v1',
+            'repository':'DavidWise01/super-sapphon',
+            'commit':os.environ['GH_SHA'],
+            'run_id':os.environ['GH_RUN'],'attempt':os.environ['GH_ATTEMPT'],
+            'step_outcomes':{n:os.environ[n] for n in names},
+            'independent_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'authenticated_utc':False,
+            'key_rotation_authorized':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'RUNTIME_EVIDENCE_HOLD'}
+          pathlib.Path('qualification-artifact/169-run-summary.json').write_text(json.dumps(record,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Preserve available runner evidence even when checks fail
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-169-runtime-evidence
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Block qualification if a required gate is not a real success
+        if: always()
+        env:
+          CONTROLS: ${{ steps.controls.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          LOCK: ${{ steps.committed_lock.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for stage in CONTROLS PREDECESSOR RUST FROZEN LOCK PARITY; do
+            if [[ "${!stage}" != success ]]; then
+              echo "::error::$stage = ${!stage} — preserve HOLD"
+              exit 1
+            fi
+          done
+          echo "All GitHub-owned checks passed in this run; external physical custody and recovery HOLD."
