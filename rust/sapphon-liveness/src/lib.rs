@@ -81,6 +81,8 @@ pub mod joblog171;
 pub mod reconcile172;
 #[cfg(target_os = "linux")]
 pub mod steps173;
+#[cfg(target_os = "linux")]
+pub mod outcomes174;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
