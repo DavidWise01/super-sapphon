@@ -1,0 +1,82 @@
+name: SAPPHON-158 Out-of-Band Challenge Replay Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-158-challenge.yml'
+      - 'docs/sapphon/phase-xiv/158/**'
+permissions:
+  contents: read
+jobs:
+  challenge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust nonce binding and inherited liveness tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery contention journal audit tests
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Check 188 immutable historical file hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          files=('docs/sapphon/SAPPHON-096-FREEZE.json',
+              'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+              'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+              'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+              'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          total=0
+          for manifest in files:
+              for name,expect in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(name).read_bytes()
+                  assert len(data)==expect['bytes'],name
+                  assert hashlib.sha256(data).hexdigest()==expect['sha256'],name
+                  total+=1
+          assert total==188,total
+          print('PASS',total,'historic files')
+          PY
+      - name: Verify nonce and HOLD safeguards
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/challenge158.rs').read_text()
+          for v in ('pub const AUTHORITY:&str="HOLD"',
+                    'CHAL158_NONCE_REPLAY','CHAL158_BINDING_MISMATCH',
+                    'external_history_authenticated:false',
+                    'external_custody_authenticated:false',
+                    'accepted_as_external_custodian:false',
+                    'recovery_authorized:false','lock_cleared:false',
+                    'CHALLENGE_HOLD'):
+              assert v in s,v
+          print('PASS no-authority source invariants')
+          PY
+      - name: Build Rust API docs
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Emit explicitly unqualified GitHub challenge observation
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          d={'schema':'sapphon-158-run-observation-v1',
+             'repository':os.environ['GH_REPO'],'commit_sha':os.environ['GH_SHA'],
+             'run_id':os.environ['GH_RUN'],'nonce_history_external':False,
+             'physical_custody_authenticated':False,'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/challenge158.json').write_text(
+              json.dumps(d,sort_keys=True,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-158-unqualified-challenge
+          path: qualification-artifact/challenge158.json
+          retention-days: 30
