@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-153 · Qualification Evidence</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 22%,#342251,#090b19 73%);color:#f0ebff;font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #725898}h1{margin:7px 0;font-size:clamp(23px,3vw,39px);text-shadow:0 0 22px #a978ffa8}main{display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px;max-width:1450px;margin:20px auto;padding:0 16px}.panel{border-radius:16px;border:1px solid #735895;background:#15112bde;box-shadow:0 0 30px #59348455;overflow:hidden}canvas{width:100%;height:465px;display:block}.side{padding:20px}.item{padding:12px;margin:9px 0;border:1px solid #584773;border-radius:9px;background:#16112c}strong{color:#44ffe0}.hold{font-size:31px;font-weight:900;color:#ffa168;text-shadow:0 0 18px #ff713677}button{background:#38264f;color:white;border:1px solid #ae8bdd;border-radius:8px;padding:9px 11px;margin:4px;cursor:pointer}small,.muted{color:#b8accb}footer{text-align:center;color:#b4a5cd;padding:22px}code{color:#b1ffea}@media(max-width:825px){main{grid-template-columns:1fr}canvas{height:335px}}
+</style></head><body>
+<header><small>PHASE XIV · 1 OF 8 · 12.5% DESIGN · OBSERVATION ONLY</small>
+<h1>SAPPHON-153 · Qualification Evidence Commissioning</h1><div class="muted">4D neon shadow tesseract · CI evidence ≠ independent physical custody</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Animated 4D neon tesseract separating CI and custody witness claims"></canvas></section>
+<section class="panel side">
+<div class="item">Rust CI <strong id="ci">NOT INDEPENDENTLY VERIFIED</strong></div>
+<div class="item">188 frozen hashes <strong>CHECK CONFIGURED</strong></div>
+<div class="item">GitHub Pages <strong>DEPLOYMENT UNVERIFIED</strong></div>
+<div class="item">External custody <strong>NOT QUALIFIED</strong></div>
+<div class="item">Evidence scenario <strong id="scenario">UNOBSERVED</strong></div>
+<div class="item">Recovery authority <div class="hold">HOLD</div></div>
+<button id="unknown">No verified readback</button><button id="claim">Self-reported pass</button><button id="failure">Failed readback</button>
+<p class="muted" id="note">No completed GitHub Actions run has been authenticated by this visualization.</p>
+<small>These controls are simulations. No GitHub API calls are made from this page; neither this image nor the source repository establishes real CI or custody qualification.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let angle=0,mode=0;
+const names=[["UNOBSERVED","NOT INDEPENDENTLY VERIFIED","No completed GitHub Actions run has been authenticated by this visualization."],["CLAIMED ONLY","SELF-REPORTED PASS","A local claim of success does not become an independent observation."],["FAILED READBACK","REQUIRES INVESTIGATION","A failed verification must be retained, not silently upgraded to pass."]];
+function set(n){mode=n;document.getElementById("scenario").textContent=names[n][0];document.getElementById("ci").textContent=names[n][1];document.getElementById("note").textContent=names[n][2]}
+document.getElementById("unknown").onclick=()=>set(0);document.getElementById("claim").onclick=()=>set(1);document.getElementById("failure").onclick=()=>set(2);
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=angle,b=angle*.59;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];const f=2.8/(4-w),g=2.48/(4.4-z*f);return[x*f*g,y*f*g]}
+function render(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090a20";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.28,points=vertices.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),col=mode===2&&axis===3?"#ff477b":mode===1&&axis===1?"#ffb06c":["#36ffe0","#ba8bff","#ffa46b","#86bdff"][axis];ctx.beginPath();ctx.moveTo(W/2+points[i][0]*k,H/2+points[i][1]*k);ctx.lineTo(W/2+points[j][0]*k,H/2+points[j][1]*k);ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=17;ctx.lineWidth=axis===3?2.2:1.4;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffb18a":"#b6ffed";ctx.fillText(["NO OBSERVED RUN ≠ RUN FAILED","CLAIMED PASS ≠ VERIFIED PASS","FAILURE → HOLD"][mode],15,H-19);angle+=.006;requestAnimationFrame(render)}render();
+</script></body></html>
