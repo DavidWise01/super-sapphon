@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-158 · Nonce Replay Gate</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 20%,#39214e,#08091a 75%);color:#f0eaff;font:15px system-ui,sans-serif}
+header{padding:24px 5vw;border-bottom:1px solid #785997}h1{margin:7px 0;font-size:clamp(23px,3vw,40px);text-shadow:0 0 18px #b57affab}
+main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(320px,2fr);gap:16px}
+.panel{border:1px solid #785b99;border-radius:16px;background:#15112cdd;box-shadow:0 0 33px #5d348452;overflow:hidden}
+canvas{width:100%;height:468px;display:block}.side{padding:20px}.metric{border:1px solid #5f4775;background:#18122f;border-radius:9px;margin:9px 0;padding:12px}
+strong{color:#43ffe0}.hold{color:#ffa269;font-weight:900;font-size:32px;text-shadow:0 0 20px #ff754488}
+button{margin:4px;background:#382451;border:1px solid #ba8fe0;color:white;border-radius:8px;padding:10px;cursor:pointer}.muted,small{color:#c0b0d0}
+footer{text-align:center;color:#b8aad0;padding:22px}code{color:#b0ffeb}@media(max-width:840px){main{grid-template-columns:1fr}canvas{height:338px}}
+</style></head><body><header><small>PHASE XIV · 6 / 8 · 75% DESIGN · SYNTHETIC REPLAY LAB</small><h1>SAPPHON-158 · Out-of-Band Nonce Challenge</h1>
+<div class="muted">Signed nonce + artifact + source ancestry · 4D neon tesseract shadow · persistent HOLD</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Rotating neon 4D tesseract representing custodian challenges and replay detection"></canvas></section>
+<section class="panel side"><div class="metric">Cryptographic envelope <strong>ED25519 RECEIPT CHECK</strong></div>
+<div class="metric">Challenge state <strong id="state">FRESH CLAIM · UNQUALIFIED</strong></div>
+<div class="metric">Nonce history custody <strong>NOT EXTERNALLY AUTHENTICATED</strong></div>
+<div class="metric">Out-of-band provider <strong>NOT COMMISSIONED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="fresh">Fresh signed claim</button><button id="replay">Replayed nonce</button><button id="counter">Stale counter</button><button id="binding">Wrong artifact</button>
+<p class="muted" id="note" role="status">Signature validity is not proof of independent physical custody.</p>
+<small>This visualizer is a synthetic demonstration. It does not fetch custodian evidence or execute Rust, Ed25519, GitHub Actions or live browser acceptance checks.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let t=0,mode=0;
+const modes=[["FRESH CLAIM · UNQUALIFIED","Signature validity is not proof of independent physical custody."],
+["NONCE REPLAY · REJECTED","The signed nonce was already consumed according to supplied history; no reauthorization."],
+["STALE COUNTER · REJECTED","Counter floor prevents restoration of an older signed challenge."],
+["ARTIFACT BINDING MISMATCH","The separately pinned artifact digest differs from the receipt's signed artifact digest."]];
+function set(n){mode=n;document.getElementById("state").textContent=modes[n][0];document.getElementById("note").textContent=modes[n][1]}
+for(const[id,n]of [["fresh",0],["replay",1],["counter",2],["binding",3]])document.getElementById(id).onclick=()=>set(n);
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(v){let[x,y,z,w]=v,a=t*.0059,b=t*.0037;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.82/(4-w),g=2.47/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090a20";ctx.fillRect(0,0,W,H);let scale=Math.min(W,H)*.28,p=vertices.map(project);
+for(const[i,j]of edges){let axis=Math.log2(i^j),color=mode&&axis===mode-1?"#ff3c76":["#34ffe1","#c489ff","#ffa870","#8dc0ff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*scale,H/2+p[i][1]*scale);ctx.lineTo(W/2+p[j][0]*scale,H/2+p[j][1]*scale);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=18;ctx.lineWidth=axis===3?2.3:1.4;ctx.stroke()}
+ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode?"#ffb085":"#b1ffed";ctx.fillText(["SIGNED ≠ INDEPENDENT CUSTODY","REPLAYED NONCE → HOLD","STALE COUNTER → HOLD","ARTIFACT BINDING → HOLD"][mode],15,H-20);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
