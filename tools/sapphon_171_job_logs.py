@@ -19,7 +19,7 @@ MAX_CHARS=12000
 SECRET=re.compile(r"(?i)(token|authorization|password|secret|api[_-]?key)(\s*[=:]\s*)(\S+)")
 HEX40=re.compile(r"^[a-f0-9]{40}$")
 def redacted(text):
-    return SECRET.sub(lambda m:m.group(1)+m.group(2)+"[REDACTED]",text[:MAX_CHARS])
+    return SECRET.sub(lambda m:m.group(1)+m.group(2)+"[REDACTED]",text)[:MAX_CHARS]
 
 def choose(rows,sha):
     if not HEX40.fullmatch(sha):raise ValueError("invalid pinned commit")
@@ -33,18 +33,20 @@ def classify(run,jobs):
          "attempt":run["run_attempt"],"head_sha":run["head_sha"],
          "run_status":run.get("status"),"run_conclusion":run.get("conclusion"),
          "expected_job":REQUIRED,"failures":[]}
+    any_failed_step=False
     for j in jobs:
         steps=[{"name":s.get("name"),"conclusion":s.get("conclusion")}
                for s in j.get("steps",[])]
-        if j.get("conclusion") in ("failure","cancelled","timed_out"):
+        failed_steps=[s for s in steps if s["conclusion"] in ("failure","cancelled","timed_out")]
+        any_failed_step=any_failed_step or bool(failed_steps)
+        if j.get("conclusion") in ("failure","cancelled","timed_out") or failed_steps:
             out["failures"].append({"job_id":j.get("id"),"name":j.get("name"),
-                 "conclusion":j.get("conclusion"),"failed_steps":[s for s in steps
-                         if s["conclusion"] in ("failure","cancelled","timed_out")]})
+                 "conclusion":j.get("conclusion"),"failed_steps":failed_steps})
     names=[j.get("name") for j in jobs]
     out["required_job_present"]=REQUIRED in names
     out["source_owned_success_observed"]=(run.get("status")=="completed"
         and run.get("conclusion")=="success"
-        and out["required_job_present"] and bool(jobs)
+        and out["required_job_present"] and bool(jobs) and not any_failed_step
         and all(j.get("conclusion")=="success" for j in jobs))
     out["status"]="LATEST_INCOMPLETE" if run.get("status")!="completed" else out["status"]
     if not out["required_job_present"]:out["status"]="REQUIRED_JOB_MISSING"
