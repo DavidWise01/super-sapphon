@@ -65,6 +65,18 @@ def gh(args):
 def api(path):
     return json.loads(gh(["api",path]))
 
+def paged_runs(workflow,sha,max_pages=10,api_call=None):
+    """Scan up to 1000 recent runs. Report an incomplete search separately."""
+    fetch=api_call or api
+    for page in range(1,max_pages+1):
+        rows=fetch(f"repos/{REPO}/actions/workflows/{workflow}/runs?per_page=100&page={page}").get("workflow_runs",[])
+        matches=[x for x in rows if x.get("head_sha")==sha]
+        if matches:
+            return choose(matches,sha),"EXACT_RUN_OBSERVED",page
+        if len(rows)<100:
+            return None,"NO_MATCHING_RUN_IN_EXHAUSTED_PAGES",page
+    return None,"RUN_SEARCH_INCOMPLETE_PAGE_CAP",max_pages
+
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("--out",default="qualification-artifact/171-job-log-triage.json")
@@ -78,6 +90,7 @@ def main():
       "sapphon-171-joblogs.yml":("9e7fc8ad8c3b05a3e12f1c3aa0c15b4c99c2e18e","diagnostics"),
       "sapphon-172-reconcile.yml":("496dec7bf5410baf031b0b7168ed2ac26311a181","diagnostic-reconciliation"),
       "sapphon-173-steps.yml":("7e1be863797ddad3043e03074fc2375b9f760c74","critical-step-diagnostics"),
+      "sapphon-174-outcomes.yml":("185802d4f10b496b899ab09551fe193b9ddd4a0d","source-outcomes"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
@@ -94,10 +107,13 @@ def main():
             fixture=json.loads(pathlib.Path(a.fixture).read_text())
             rows=fixture["runs"]
         else:
-            rows=api(f"repos/{REPO}/actions/workflows/{a.workflow}/runs?per_page=100").get("workflow_runs",[])
-        target=choose(rows,a.sha)
+            target,search_status,pages=paged_runs(a.workflow,a.sha)
+            out["pages_scanned"]=pages
+        if a.fixture:
+            target=choose(rows,a.sha)
+            search_status="NO_MATCHING_RUN_IN_FIXTURE" if target is None else "EXACT_RUN_OBSERVED"
         if target is None:
-            out["status"]="NO_MATCHING_RUN_IN_FIRST_PAGE"
+            out["status"]=search_status
         else:
             if a.fixture:jobs=fixture["jobs"]
             else:
@@ -125,7 +141,7 @@ def main():
     dest.write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
     print("SAPPHON-171",out["status"],"observed failed jobs:",
            len((out.get("observed") or {}).get("failures",[])))
-    if out["status"] in ("READBACK_UNAVAILABLE","NO_MATCHING_RUN_IN_FIRST_PAGE","REQUIRED_JOB_MISSING"):
+    if out["status"] in ("READBACK_UNAVAILABLE","NO_MATCHING_RUN_IN_EXHAUSTED_PAGES","RUN_SEARCH_INCOMPLETE_PAGE_CAP","NO_MATCHING_RUN_IN_FIXTURE","REQUIRED_JOB_MISSING"):
         raise SystemExit(1)
 
 if __name__=="__main__":main()
