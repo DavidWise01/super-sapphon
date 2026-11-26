@@ -1,0 +1,92 @@
+name: SAPPHON-156 Dual Acquisition Custody Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-156-custody.yml'
+      - 'docs/sapphon/phase-xiv/156/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  custody-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Rust dual-acquisition and inherited liveness tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery contention journal and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 frozen historical source hashes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for m in manifests:
+              for path,expected in json.loads(pathlib.Path(m).read_text())['files'].items():
+                  b=pathlib.Path(path).read_bytes()
+                  assert len(b)==expected['bytes'],path
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historic frozen source files')
+          PY
+      - name: Check unqualified custody authority and anti-rollback flags
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/custody156.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+              'authenticated_custody_independence:false',
+              'global_anti_rollback_authenticated:false',
+              'recovery_authorized:false','lock_cleared:false',
+              'SharedSourceAncestry','DUAL_READBACK_HOLD'):
+              assert token in s,token
+          print('PASS custody and HOLD source safeguards')
+          PY
+      - name: Build Rust API docs
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Publish explicit one-ancestry GitHub-origin observation
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          record={
+              "schema":"sapphon-156-github-origin-observation-v1",
+              "repository":os.environ["GH_REPO"],
+              "commit_sha":os.environ["GH_SHA"],
+              "run_id":os.environ["GH_RUN"],
+              "attempt":os.environ["GH_ATTEMPT"],
+              "acquisition_root":"github-actions",
+              "source_ancestry":"github-repository-and-runner",
+              "external_custody_receipt":"NOT_PRESENT",
+              "independent_custody_authenticated":False,
+              "recovery_authority":"HOLD"
+          }
+          data=(json.dumps(record,sort_keys=True,indent=2)+"\n").encode()
+          pathlib.Path('qualification-artifact/156-one-root.json').write_bytes(data)
+          print("Single GitHub ancestry receipt SHA256:",hashlib.sha256(data).hexdigest())
+          PY
+      - name: Upload one-root observation (not second custodian)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-156-one-root-observation
+          path: qualification-artifact/156-one-root.json
+          retention-days: 30
