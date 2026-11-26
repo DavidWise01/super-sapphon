@@ -56,4 +56,12 @@ class T(unittest.TestCase):
  def test_green_run_with_cancelled_step_denied(self):
   j=job();j["steps"][0]["conclusion"]="cancelled"
   self.assertFalse(m.classify(row(),[j])["source_owned_success_observed"])
+ def test_phase_xvi_171_required_job(self):
+  observed=m.classify(row(),[job(name="diagnostics")],"diagnostics")
+  self.assertTrue(observed["source_owned_success_observed"])
+  self.assertEqual(observed["expected_job"],"diagnostics")
+ def test_wrong_required_job_fails(self):
+  observed=m.classify(row(),[job(name="deterministic-diagnostics")],"diagnostics")
+  self.assertFalse(observed["source_owned_success_observed"])
+  self.assertEqual(observed["status"],"REQUIRED_JOB_MISSING")
 if __name__=="__main__":unittest.main()
