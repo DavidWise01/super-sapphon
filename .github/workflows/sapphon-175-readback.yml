@@ -1,0 +1,148 @@
+name: SAPPHON-175 Bounded Runner Evidence Readback
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_171_job_logs.py'
+      - 'tools/test_sapphon_171_job_logs.py'
+      - 'tools/sapphon_175_*.py'
+      - '.github/workflows/sapphon-175-readback.yml'
+      - 'docs/sapphon/phase-xvi/175/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Python source and pagination regression suites
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_175_observed.py
+          python3 tools/test_sapphon_171_job_logs.py
+          python3 tools/test_sapphon_174_outcomes.py
+          python3 tools/test_sapphon_173_critical_steps.py
+          python3 tools/test_sapphon_172_reconcile.py
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Typecheck and run all inherited Rust regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Check all 188 historical frozen byte counts and SHA-256
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifests:
+            for path,meta in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+              assert path not in seen,('duplicate historical path',path)
+              seen.add(path);body=pathlib.Path(path).read_bytes()
+              assert len(body)==meta['bytes'],('bad size',path)
+              assert hashlib.sha256(body).hexdigest()==meta['sha256'],('bad digest',path)
+          assert len(seen)==188,len(seen)
+          print('PASS 188 / 188 immutable historical declarations')
+          PY
+      - name: Read exact SAPPHON-174 run with bounded pagination
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha 185802d4f10b496b899ab09551fe193b9ddd4a0d \
+            --workflow sapphon-174-outcomes.yml \
+            --required-job source-outcomes \
+            --out qualification-artifact/175-predecessor-run.json
+      - name: Independently classify exact source-owned observed outcomes
+        id: review
+        continue-on-error: true
+        run: |
+          python3 tools/sapphon_175_observed.py \
+            --input qualification-artifact/175-predecessor-run.json \
+            --out qualification-artifact/175-observed.json
+      - name: Observe provisional npm lockfile integrity separately
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/175-lock.json
+      - name: Compare Pages with exact workflow source revision
+        id: pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/175-pages.json
+      - name: Record independent diagnostic outcomes and HOLD authority
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          REVIEW: ${{ steps.review.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PAGES: ${{ steps.pages.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          stages=('PYTHON','RUST','FROZEN','PREDECESSOR','REVIEW','LOCK','PAGES')
+          outcomes={k:os.environ[k] for k in stages}
+          result={'schema':'sapphon-175-owned-evidence-v1',
+            'commit_sha':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':outcomes,
+            'source_tests_observed_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'full_qualification':False,'npm_lock_qualified':False,
+            'external_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'BOUNDED_RUN_EVIDENCE_HOLD'}
+          pathlib.Path('qualification-artifact/175-summary.json').write_text(
+             json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Retain logs, readback limitations and test outcomes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-175-bounded-run-evidence
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail closed for Python, Rust or historical source failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for x in PYTHON RUST FROZEN; do
+            if [[ "${!x}" != success ]]; then
+              echo "::error::$x = ${!x}; operational HOLD"
+              exit 1
+            fi
+          done
+          echo "GitHub-owned diagnostics only; dependency lock, Pages, external custody and recovery HOLD."
