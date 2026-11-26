@@ -45,12 +45,16 @@ pub fn evaluate(input:&Input)->Result<Freeze,Error>{
  let mut b=input.bounds.clone();b.sort_by_key(|v|v.number);
  let mut ancestors=BTreeSet::new();
  for (i,x) in b.iter().enumerate(){
+   let expected=[
+       "rust/sapphon-liveness/src/diagnostic161.rs",
+       "rust/sapphon-liveness/src/triage162.rs",
+       "rust/sapphon-liveness/src/parity163.rs",
+       "tools/sapphon_164_pages_parity.py",
+       "tools/sapphon_165_lock_inspect.py",
+       "rust/sapphon-liveness/src/candidate166.rs",
+       "rust/sapphon-liveness/src/promotion167.rs"][i];
    if x.number!=161+i as u16||!hex(&x.declared_sha256,64)
-      ||x.source_path!=format!("rust/sapphon-liveness/src/{}.rs",[
-         "diagnostic161","triage162","parity163","candidate166",
-         "promotion167","phase_xv_marker164","phase_xv_marker165"][i])
-      && !(x.number==164&&x.source_path=="tools/sapphon_164_pages_parity.py")
-      && !(x.number==165&&x.source_path=="tools/sapphon_165_lock_inspect.py")
+      ||x.source_path!=expected
       ||x.source_ancestry.len()>128||x.source_ancestry.is_empty(){
       return Err(Error("FREEZE168_BOUND_FIELDS"));
    }
