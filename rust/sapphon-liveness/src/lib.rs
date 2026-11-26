@@ -51,6 +51,8 @@ pub mod readback154;
 pub mod artifact155;
 #[cfg(target_os = "linux")]
 pub mod custody156;
+#[cfg(target_os = "linux")]
+pub mod enrollment157;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
