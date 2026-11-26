@@ -67,7 +67,11 @@ jobs:
           set -euo pipefail
           npx --yes playwright --version
           npx --yes playwright install chromium
-          node tools/sapphon_161_browser.cjs
+          mkdir -p qualification-artifact
+          npx --yes playwright screenshot --browser chromium --wait-for-timeout 2500 \
+            'https://davidwise01.github.io/super-sapphon/docs/sapphon/phase-xiv/160/' \
+            qualification-artifact/161-browser.png
+          test -s qualification-artifact/161-browser.png
       - name: Record five check outcomes without upgrading claims to independent authority
         if: always()
         env:
@@ -86,7 +90,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sapphon-161-diagnostic-evidence
-          path: qualification-artifact/161-diagnostic.json
+          path: |
+            qualification-artifact/161-diagnostic.json
+            qualification-artifact/161-browser.png
           if-no-files-found: error
           retention-days: 30
       - name: Mark CI failed if any required check failed or was skipped
