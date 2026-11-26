@@ -28,11 +28,11 @@ def choose(rows,sha):
     selected.sort(key=lambda r:(r["id"],r["run_attempt"]),reverse=True)
     return selected[0] if selected else None
 
-def classify(run,jobs):
+def classify(run,jobs,required=REQUIRED):
     out={"status":"EXACT_RUN_OBSERVED","run_id":run["id"],
          "attempt":run["run_attempt"],"head_sha":run["head_sha"],
          "run_status":run.get("status"),"run_conclusion":run.get("conclusion"),
-         "expected_job":REQUIRED,"failures":[]}
+         "expected_job":required,"failures":[]}
     any_failed_step=False
     for j in jobs:
         steps=[{"name":s.get("name"),"conclusion":s.get("conclusion")}
@@ -43,7 +43,7 @@ def classify(run,jobs):
             out["failures"].append({"job_id":j.get("id"),"name":j.get("name"),
                  "conclusion":j.get("conclusion"),"failed_steps":failed_steps})
     names=[j.get("name") for j in jobs]
-    out["required_job_present"]=REQUIRED in names
+    out["required_job_present"]=required in names
     out["source_owned_success_observed"]=(run.get("status")=="completed"
         and run.get("conclusion")=="success"
         and out["required_job_present"] and bool(jobs) and not any_failed_step
@@ -62,9 +62,19 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("--out",default="qualification-artifact/171-job-log-triage.json")
     p.add_argument("--fixture",help="synthetic input object {runs:[],jobs:[]}")
+    p.add_argument("--sha",default=EXPECTED)
+    p.add_argument("--workflow",default=WORKFLOW)
+    p.add_argument("--required-job",default=REQUIRED)
     a=p.parse_args()
+    valid_targets={
+      "sapphon-170-isolation.yml":("94188aa212cb2ae5d80ddc4c93ba0d71c6b81f2b","deterministic-diagnostics"),
+      "sapphon-171-joblogs.yml":("9e7fc8ad8c3b05a3e12f1c3aa0c15b4c99c2e18e","diagnostics"),
+    }
+    if (a.workflow not in valid_targets or
+        (a.sha,a.required_job)!=valid_targets[a.workflow]):
+        p.error("workflow, commit and required job must match the pinned allowlist")
     out={"schema":"sapphon-171-job-log-triage-v1","repository":REPO,
-         "expected_sha":EXPECTED,"workflow":WORKFLOW,
+         "expected_sha":a.sha,"workflow":a.workflow,
          "status":"READBACK_UNAVAILABLE","observed":None,
          "log_excerpts":[],"independent_custody_authenticated":False,
          "global_anti_rollback_authenticated":False,
@@ -75,15 +85,15 @@ def main():
             fixture=json.loads(pathlib.Path(a.fixture).read_text())
             rows=fixture["runs"]
         else:
-            rows=api(f"repos/{REPO}/actions/workflows/{WORKFLOW}/runs?per_page=100").get("workflow_runs",[])
-        target=choose(rows,EXPECTED)
+            rows=api(f"repos/{REPO}/actions/workflows/{a.workflow}/runs?per_page=100").get("workflow_runs",[])
+        target=choose(rows,a.sha)
         if target is None:
             out["status"]="NO_MATCHING_RUN_IN_FIRST_PAGE"
         else:
             if a.fixture:jobs=fixture["jobs"]
             else:
                 jobs=api(f"repos/{REPO}/actions/runs/{target['id']}/attempts/{target['run_attempt']}/jobs?per_page=100").get("jobs",[])
-            out["observed"]=classify(target,jobs)
+            out["observed"]=classify(target,jobs,a.required_job)
             out["status"]=out["observed"]["status"]
             if not a.fixture:
                 for failure in out["observed"]["failures"][:6]:
