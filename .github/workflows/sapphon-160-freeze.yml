@@ -1,0 +1,102 @@
+name: SAPPHON-160 Phase XIV Final Qualification Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-160-freeze.yml'
+      - 'docs/sapphon/phase-xiv/160/**'
+permissions:
+  contents: read
+jobs:
+  phase-xiv-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute complete Rust liveness and Phase XIV regression suite
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Execute inherited recovery contention journal and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historical frozen files by byte count and SHA256
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          seen=set()
+          for manifest in manifests:
+              files=json.loads(pathlib.Path(manifest).read_text())['files']
+              for name,expected in files.items():
+                  assert name not in seen,('duplicate frozen name',name)
+                  seen.add(name)
+                  body=pathlib.Path(name).read_bytes()
+                  assert len(body)==expected['bytes'],name
+                  assert hashlib.sha256(body).hexdigest()==expected['sha256'],name
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historical frozen files')
+          PY
+      - name: Assert all Phase XIV source modules preserve HOLD
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          names=['qualification153','readback154','artifact155','custody156',
+                 'enrollment157','challenge158','nonce159','freeze160']
+          for name in names:
+              s=Path(f'rust/sapphon-liveness/src/{name}.rs').read_text()
+              assert 'pub const AUTHORITY:&str="HOLD"' in s,name
+          final=Path('rust/sapphon-liveness/src/freeze160.rs').read_text()
+          for term in ('rust_ci_verified:false','frozen_188_hashes_verified:false',
+              'independent_custody_proven:false',
+              'monotonic_external_anchor_proven:false',
+              'recovery_authorized:false','key_rotation_authorized:false',
+              'lock_cleared:false','DESIGN_COMPLETE_QUALIFICATION_HOLD'):
+              assert term in final,term
+          print('PASS all eight Phase XIV HOLD source bounds')
+          PY
+      - name: Build Rust API documentation
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Create run-scoped source inventory without claiming independent custody
+        env:
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib
+          paths=['qualification153','readback154','artifact155','custody156',
+                 'enrollment157','challenge158','nonce159','freeze160']
+          files=[]
+          for name in paths:
+              path=pathlib.Path(f'rust/sapphon-liveness/src/{name}.rs')
+              body=path.read_bytes()
+              files.append({'path':str(path),'bytes':len(body),
+                            'sha256':hashlib.sha256(body).hexdigest(),
+                            'source_ancestry':'github-owned-corpus'})
+          d={'schema':'sapphon-160-source-inventory-v1','repository':os.environ['GH_REPO'],
+             'commit':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+             'attempt':os.environ['GH_ATTEMPT'],'files':files,
+             'design_progress_percent':100,'ci_artifact_is_independent_custody':False,
+             'externally_pinned_manifest':False,'authenticated_utc':False,
+             'global_anti_rollback_authenticated':False,'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/160-source-inventory.json').write_text(
+              json.dumps(d,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload run-scoped design inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-160-design-freeze-inventory
+          path: qualification-artifact/160-source-inventory.json
+          retention-days: 30
