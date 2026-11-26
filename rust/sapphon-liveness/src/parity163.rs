@@ -45,7 +45,7 @@ pub fn inspect(source_commit:&str,assets:&[Asset])->Result<Review,Error>{
             matched.push(a.label.clone());
         }else{mismatched.push(a.label.clone());}
     }
-    let missing=REQUIRED.iter().filter(|x|!seen.contains(**x))
+    let missing=REQUIRED.iter().filter(|x|!seen.contains(*x))
         .map(|x|(*x).to_owned()).collect::<Vec<_>>();
     matched.sort();mismatched.sort();
     let mut sorted=assets.to_vec();sorted.sort_by(|a,b|a.label.cmp(&b.label));
