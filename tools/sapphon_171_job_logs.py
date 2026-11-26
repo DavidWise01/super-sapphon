@@ -24,7 +24,8 @@ def redacted(text):
 def choose(rows,sha):
     if not HEX40.fullmatch(sha):raise ValueError("invalid pinned commit")
     selected=[r for r in rows if r.get("head_sha")==sha and isinstance(r.get("id"),int)
-              and isinstance(r.get("run_attempt"),int)]
+              and isinstance(r.get("run_attempt"),int) and not isinstance(r.get("run_attempt"),bool)
+              and r["run_attempt"]>0 and r["id"]>0]
     selected.sort(key=lambda r:(r["id"],r["run_attempt"]),reverse=True)
     return selected[0] if selected else None
 
@@ -47,7 +48,7 @@ def classify(run,jobs,required=REQUIRED):
     required_jobs=[j for j in jobs if j.get("name")==required]
     out["required_steps"]=[{"name":step.get("name"),"conclusion":step.get("conclusion")} for j in required_jobs for step in j.get("steps",[])]
     out["required_steps_observed"]=bool(out["required_steps"])
-    out["unresolved_required_steps"]=[step for step in out["required_steps"] if step["conclusion"] in (None,"skipped","cancelled","timed_out","failure")]
+    out["unresolved_required_steps"]=[step for step in out["required_steps"] if step["conclusion"]!="success"]
     out["required_job_unique"]=len(required_jobs)==1
     out["source_owned_success_observed"]=(run.get("status")=="completed"
         and run.get("conclusion")=="success"
@@ -93,6 +94,7 @@ def main():
       "sapphon-174-outcomes.yml":("185802d4f10b496b899ab09551fe193b9ddd4a0d","source-outcomes"),
       "sapphon-175-readback.yml":("134dd02d0d6728abc27264548fed4c91a223e9e4","source-diagnostics"),
       "sapphon-176-freeze.yml":("f17b3d6c437da7f82240fffae703dfbde61a215b","final-evidence"),
+      "sapphon-177-evidence.yml":("3053c21609333ea93d74ff2d38aeeed1c27d6084","executable-diagnostics"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
