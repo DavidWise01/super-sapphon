@@ -1,0 +1,114 @@
+name: SAPPHON-155 Run-Scoped Artifact Readback
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-155-artifact.yml'
+      - 'docs/sapphon/phase-xiv/155/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  artifact-readback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust CI artifact verifier and inherited tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Rust inherited recovery contention journal and audit tests
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify historical frozen files
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          paths=('docs/sapphon/SAPPHON-096-FREEZE.json',
+           'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+           'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+           'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+           'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in paths:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(path).read_bytes()
+                  assert len(data)==expected['bytes'],path
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historic files')
+          PY
+      - name: Review prior CI run, jobs, and artifact using GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,subprocess,zipfile,io
+          repo=os.environ['GH_REPO']
+          out={'schema':'sapphon-155-github-api-observation-v1',
+              'repository':repo,'target_workflow':'sapphon-153-qualification.yml',
+              'result':'NO_VERIFIED_RUN','independent_custody':False,
+              'recovery_authority':'HOLD'}
+          def api(path):
+              r=subprocess.run(['gh','api',path],text=True,capture_output=True,check=False)
+              if r.returncode: raise RuntimeError(r.stderr[:500])
+              return json.loads(r.stdout)
+          try:
+              runs=api(f'repos/{repo}/actions/workflows/sapphon-153-qualification.yml/runs?per_page=30')['workflow_runs']
+              candidates=[r for r in runs if r.get('status')=='completed'
+                           and r.get('conclusion')=='success']
+              if not candidates:
+                  out['result']='NO_COMPLETED_SUCCESS_RUN_IN_FIRST_30'
+              else:
+                  r=candidates[0];run_id=r['id'];attempt=r.get('run_attempt',1)
+                  jobs=api(f'repos/{repo}/actions/runs/{run_id}/jobs?per_page=100')['jobs']
+                  art=api(f'repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100')['artifacts']
+                  matches=[a for a in art if a['name']=='sapphon-153-ci-claim' and not a.get('expired',False)]
+                  out.update(run_id=run_id,attempt=attempt,commit_sha=r['head_sha'],
+                      run_status=r['status'],run_conclusion=r['conclusion'],
+                      jobs=[{'id':j['id'],'name':j['name'],'status':j['status'],
+                             'conclusion':j.get('conclusion')} for j in jobs])
+                  if not matches: out['result']='ARTIFACT_ABSENT'
+                  elif any(j.get('conclusion')!='success' for j in jobs):
+                      out['result']='JOB_NOT_SUCCESSFUL'
+                  else:
+                      a=matches[0]
+                      rzip=subprocess.run(['gh','api',f'repos/{repo}/actions/artifacts/{a["id"]}/zip'],
+                          capture_output=True,check=False)
+                      if rzip.returncode: raise RuntimeError(rzip.stderr.decode(errors='replace')[:500])
+                      out['zip_sha256']=hashlib.sha256(rzip.stdout).hexdigest()
+                      with zipfile.ZipFile(io.BytesIO(rzip.stdout)) as z:
+                          names=z.namelist()
+                          if names!=['ci-claim.json']:
+                              raise ValueError('Unexpected artifact entries')
+                          data=z.read('ci-claim.json')
+                      out['json_entry_sha256']=hashlib.sha256(data).hexdigest()
+                      out['artifact_name']=a['name'];out['artifact_id']=a['id']
+                      claim=json.loads(data)
+                      expected={'repository':repo,'git_commit':r['head_sha'],
+                          'run_id':str(run_id),'run_attempt':str(attempt),
+                          'recovery_authority':'HOLD',
+                          'independent_custody_authenticated':False,
+                          'rust_tests':'completed_prior_steps',
+                          'historical_188_hashes':'completed_prior_steps',
+                          'schema':'sapphon-153-actions-run-v1'}
+                      out['result']='RUNNER_EVIDENCE_CONSISTENT' if claim==expected else 'CLAIM_IDENTITY_MISMATCH'
+          except Exception as e:
+              out['result']='READBACK_ERROR';out['error']=str(e)[:500]
+          pathlib.Path('qualification-artifact/155-observation.json').write_text(
+              json.dumps(out,sort_keys=True,indent=2)+'\n')
+          print('Observation:',out['result'])
+          PY
+      - name: Upload readback observation (not independent custody)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-155-readback
+          path: qualification-artifact/155-observation.json
+          retention-days: 30
