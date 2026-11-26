@@ -1,0 +1,107 @@
+name: SAPPHON-161 Phase XV Qualification Diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_161_probe.py'
+      - '.github/workflows/sapphon-161-diagnostics.yml'
+      - 'docs/sapphon/phase-xv/161/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust typecheck
+        id: rust_check
+        continue-on-error: true
+        run: cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+      - name: Rust liveness and inherited suites
+        id: rust_tests
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Independently recalculate 188 frozen hashes on checked-out source
+        id: frozen_188
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifests:
+              for name,expect in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  assert name not in seen,('repeated frozen path',name)
+                  seen.add(name)
+                  body=pathlib.Path(name).read_bytes()
+                  assert len(body)==expect['bytes'],('byte mismatch',name)
+                  assert hashlib.sha256(body).hexdigest()==expect['sha256'],('digest mismatch',name)
+          assert len(seen)==188,len(seen)
+          print('PASS 188/188 historical frozen paths')
+          PY
+      - name: Query Pages HTTP status and asset identity
+        id: pages_http
+        continue-on-error: true
+        run: |
+          python3 tools/sapphon_161_probe.py pages \
+            'https://davidwise01.github.io/super-sapphon/docs/sapphon/phase-xiv/160/' \
+            'SAPPHON-160'
+      - name: Browser smoke through Chromium
+        id: browser_smoke
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          npx --yes playwright --version
+          npx --yes playwright install chromium
+          node tools/sapphon_161_browser.cjs
+      - name: Record five check outcomes without upgrading claims to independent authority
+        if: always()
+        env:
+          RUST_CHECK: ${{ steps.rust_check.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          FROZEN_188: ${{ steps.frozen_188.outcome }}
+          PAGES_HTTP: ${{ steps.pages_http.outcome }}
+          BROWSER_SMOKE: ${{ steps.browser_smoke.outcome }}
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: python3 tools/sapphon_161_probe.py report
+      - name: Upload complete diagnostic record even after errors
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-161-diagnostic-evidence
+          path: qualification-artifact/161-diagnostic.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Mark CI failed if any required check failed or was skipped
+        if: always()
+        env:
+          RUST_CHECK: ${{ steps.rust_check.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          FROZEN_188: ${{ steps.frozen_188.outcome }}
+          PAGES_HTTP: ${{ steps.pages_http.outcome }}
+          BROWSER_SMOKE: ${{ steps.browser_smoke.outcome }}
+        run: |
+          for step in RUST_CHECK RUST_TESTS FROZEN_188 PAGES_HTTP BROWSER_SMOKE; do
+            if [[ "${!step}" != success ]]; then
+              echo "::error::$step outcome: ${!step}"
+              exit 1
+            fi
+          done
+          echo "All five CI checks passed on this GitHub runner; no external custody qualification."
