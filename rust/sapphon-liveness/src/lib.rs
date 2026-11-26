@@ -55,6 +55,8 @@ pub mod custody156;
 pub mod enrollment157;
 #[cfg(target_os = "linux")]
 pub mod challenge158;
+#[cfg(target_os = "linux")]
+pub mod nonce159;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
