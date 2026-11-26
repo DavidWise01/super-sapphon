@@ -1,0 +1,148 @@
+name: SAPPHON-162 Rust Repair & Interactive Chromium Acceptance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_162_browser.cjs'
+      - '.github/workflows/sapphon-162-acceptance.yml'
+      - 'docs/sapphon/phase-xv/162/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  interactive-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust typecheck
+        id: rust_check
+        continue-on-error: true
+        run: cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+      - name: Rust complete inherited and Phase XV tests
+        id: rust_tests
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Compare all historical 188 frozen byte counts and SHA256
+        id: historical_freeze
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifests:
+              for name,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  assert name not in seen,('frozen duplicate',name)
+                  seen.add(name)
+                  b=pathlib.Path(name).read_bytes()
+                  assert len(b)==expected['bytes'],('bytes mismatch',name)
+                  assert hashlib.sha256(b).hexdigest()==expected['sha256'],('digest mismatch',name)
+          assert len(seen)==188,len(seen)
+          print('PASS all 188 historic hashes')
+          PY
+      - name: Browser acceptance with real DOM transitions and canvas frames
+        id: browser_acceptance
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node tools/sapphon_162_browser.cjs
+      - name: GitHub API readback of prior SAPPHON-161 run status
+        id: github_readback
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib,subprocess
+          repo=os.environ['GH_REPO']
+          record={'schema':'sapphon-162-prior-run-readback-v1',
+                  'repository':repo,'origin':'github-actions-github-api',
+                  'prior_run_observed':False,
+                  'externally_authenticated':False,'authority':'HOLD'}
+          try:
+              r=subprocess.run(['gh','api',f'repos/{repo}/actions/workflows/sapphon-161-diagnostics.yml/runs?per_page=10'],
+                               capture_output=True,text=True,check=True)
+              runs=json.loads(r.stdout)['workflow_runs']
+              record['prior_run_observed']=bool(runs)
+              if runs:
+                  run=runs[0]
+                  record['prior']={'id':run['id'],'head_sha':run['head_sha'],
+                                   'status':run['status'],'conclusion':run.get('conclusion'),
+                                   'attempt':run.get('run_attempt')}
+                  j=subprocess.run(['gh','api',f'repos/{repo}/actions/runs/{run["id"]}/jobs?per_page=100'],
+                                   capture_output=True,text=True,check=True)
+                  record['jobs']=[{'name':job['name'],'status':job['status'],
+                                  'conclusion':job.get('conclusion'),
+                                  'steps':[{'name':s['name'],'conclusion':s.get('conclusion')}
+                                           for s in job.get('steps',[])]}
+                                  for job in json.loads(j.stdout)['jobs']]
+          except Exception as e:
+              record['readback_error']=str(e)[:600]
+          pathlib.Path('qualification-artifact/162-prior-run.json').write_text(
+               json.dumps(record,indent=2,sort_keys=True)+'\n')
+          print('PRIOR RUN:',record.get('prior'))
+          PY
+      - name: Generate diagnostic summary even when tests fail
+        if: always()
+        env:
+          RUST_CHECK: ${{ steps.rust_check.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          HISTORICAL_FREEZE: ${{ steps.historical_freeze.outcome }}
+          BROWSER_ACCEPTANCE: ${{ steps.browser_acceptance.outcome }}
+          GITHUB_READBACK: ${{ steps.github_readback.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          d={'schema':'sapphon-162-ci-diagnostic-v1',
+             'commit':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+             'attempt':os.environ['GH_ATTEMPT'],
+             'outcomes':{x:os.environ[x] for x in ('RUST_CHECK','RUST_TESTS','HISTORICAL_FREEZE','BROWSER_ACCEPTANCE','GITHUB_READBACK')},
+             'independent_custody_authenticated':False,
+             'global_anti_rollback_authenticated':False,
+             'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact').mkdir(exist_ok=True)
+          pathlib.Path('qualification-artifact/162-summary.json').write_text(json.dumps(d,indent=2)+'\n')
+          PY
+      - name: Upload failed or passing run evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-162-observations
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail job if any required qualification stage failed
+        if: always()
+        env:
+          RUST_CHECK: ${{ steps.rust_check.outcome }}
+          RUST_TESTS: ${{ steps.rust_tests.outcome }}
+          HISTORICAL_FREEZE: ${{ steps.historical_freeze.outcome }}
+          BROWSER_ACCEPTANCE: ${{ steps.browser_acceptance.outcome }}
+        run: |
+          for key in RUST_CHECK RUST_TESTS HISTORICAL_FREEZE BROWSER_ACCEPTANCE; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key is ${!key}"
+              exit 1
+            fi
+          done
+          echo "CI and browser observations passed on GitHub runner; external custody remains HOLD."
