@@ -1,0 +1,146 @@
+name: SAPPHON-173 Exact Critical-Step Evidence
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_171_job_logs.py'
+      - 'tools/test_sapphon_171_job_logs.py'
+      - 'tools/sapphon_173_*.py'
+      - '.github/workflows/sapphon-173-steps.yml'
+      - 'docs/sapphon/phase-xvi/173/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  critical-step-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python critical-step regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_173_critical_steps.py
+          python3 tools/test_sapphon_172_reconcile.py
+          python3 tools/test_sapphon_171_job_logs.py
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Run Rust typecheck and inherited test suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Check 188 inherited frozen source hashes
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for mf in manifests:
+              for path,meta in json.loads(pathlib.Path(mf).read_text())['files'].items():
+                  assert path not in seen,('duplicate',path)
+                  seen.add(path);b=pathlib.Path(path).read_bytes()
+                  assert len(b)==meta['bytes'],('size',path)
+                  assert hashlib.sha256(b).hexdigest()==meta['sha256'],('sha256',path)
+          assert len(seen)==188,len(seen)
+          print('PASS 188/188 historical frozen paths')
+          PY
+      - name: Retrieve exact SAPPHON-172 run and job steps
+        id: logs
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --workflow sapphon-172-reconcile.yml \
+            --sha 496dec7bf5410baf031b0b7168ed2ac26311a181 \
+            --required-job diagnostic-reconciliation \
+            --out qualification-artifact/173-predecessor-run.json
+      - name: Reconcile three critical diagnostic steps against run evidence
+        id: critical
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/sapphon_173_critical_steps.py \
+            --input qualification-artifact/173-predecessor-run.json \
+            --out qualification-artifact/173-critical-steps.json
+      - name: Inspect committed provisional dependency lockfile
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/173-lock.json
+      - name: Compare four GitHub Pages HTML assets with exact commit
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/173-pages.json
+      - name: Save all findings even if checks fail
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          LOGS: ${{ steps.logs.outcome }}
+          CRITICAL: ${{ steps.critical.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('PYTHON','RUST','FROZEN','LOGS','CRITICAL','LOCK','PARITY')
+          results={k:os.environ[k] for k in keys}
+          report={'schema':'sapphon-173-owned-diagnostics-v1',
+             'commit_sha':os.environ['GITHUB_SHA'],
+             'run_id':os.environ['GITHUB_RUN_ID'],
+             'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+             'results':results,
+             'source_tests_all_passed':all(results[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+             'full_qualification':False,
+             'independent_custody_authenticated':False,
+             'global_anti_rollback_authenticated':False,
+             'recovery_authorized':False,'lock_cleared':False,
+             'decision':'CRITICAL_STEPS_HOLD'}
+          pathlib.Path('qualification-artifact/173-summary.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Preserve all available source-owned evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-173-critical-step-diagnostics
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail on actual source tests or historical integrity errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; HOLD"
+              exit 1
+            fi
+          done
+          echo "GitHub-owned diagnostics observed; npm lock, Pages and recovery qualification HOLD."
