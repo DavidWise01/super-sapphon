@@ -1,0 +1,137 @@
+name: SAPPHON-166 Exact-Run Candidate Evidence Intake
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_166_*.py'
+      - 'tools/test_sapphon_166_candidate.py'
+      - '.github/workflows/sapphon-166-intake.yml'
+      - 'docs/sapphon/phase-xv/166/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  evidence-intake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run offline candidate negative controls
+        id: tests
+        continue-on-error: true
+        run: python3 tools/test_sapphon_166_candidate.py
+      - name: Obtain exact completed SAPPHON-165 source run and artifact
+        id: intake
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_166_artifact_intake.py
+      - name: Reconcile original run, source SHA and exact candidate bytes
+        id: review
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          test '${{ steps.intake.outcome }}' = success
+          python3 - <<'PY'
+          import json,subprocess,pathlib
+          r=json.loads(pathlib.Path('qualification-artifact/166-artifact-intake.json').read_text())
+          base=pathlib.Path('qualification-artifact/165-intake')
+          cmd=['python3','tools/sapphon_166_candidate_review.py',
+               '--candidate',str(base/'165-registry-candidate-package-lock.json'),
+               '--summary',str(base/'165-run-summary.json'),
+               '--inspection',str(base/'165-registry-candidate-inspection.json'),
+               '--commit',r['expected_commit'],'--run',str(r['run_id']),
+               '--attempt',str(r['attempt'])]
+          subprocess.run(cmd,check=True)
+          PY
+      - name: Rust typecheck and full inherited regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Preserve all 188 frozen historical files
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for mf in manifests:
+              for path,expect in json.loads(pathlib.Path(mf).read_text())['files'].items():
+                  assert path not in seen,('duplicate frozen path',path)
+                  seen.add(path)
+                  body=pathlib.Path(path).read_bytes()
+                  assert len(body)==expect['bytes'],('size mismatch',path)
+                  assert hashlib.sha256(body).hexdigest()==expect['sha256'],('digest mismatch',path)
+          assert len(seen)==188,len(seen)
+          print('PASS 188 / 188 protected historical files')
+          PY
+      - name: Check four deployed pages against this exact commit
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}'
+      - name: Record qualification observations even if intake fails
+        if: always()
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          INTAKE: ${{ steps.intake.outcome }}
+          REVIEW: ${{ steps.review.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('TESTS','INTAKE','REVIEW','RUST','FROZEN','PARITY')
+          r={'schema':'sapphon-166-github-origin-status-v1',
+             'commit_sha':os.environ['GH_SHA'],'run_id':os.environ['GH_RUN'],
+             'run_attempt':os.environ['GH_ATTEMPT'],
+             'outcomes':{n:os.environ[n] for n in names},
+             'candidate_committed':False,'external_custody_authenticated':False,
+             'global_anti_rollback_authenticated':False,'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/166-summary.json').write_text(json.dumps(r,indent=2)+'\n')
+          PY
+      - name: Retain all available evidence with failure provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-166-candidate-readback
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail closed when any required qualification step is unproven
+        if: always()
+        env:
+          TESTS: ${{ steps.tests.outcome }}
+          INTAKE: ${{ steps.intake.outcome }}
+          REVIEW: ${{ steps.review.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for name in TESTS INTAKE REVIEW RUST FROZEN PARITY; do
+            if [[ "${!name}" != success ]]; then
+              echo "::error::$name = ${!name}; HOLD."
+              exit 1
+            fi
+          done
+          echo "All GitHub-owned source checks passed, but candidate is not a committed lock and custody HOLD."
