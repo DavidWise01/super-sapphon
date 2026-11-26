@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Rust liveness qualification and inherited adversarial tests
-        run: cargo test --locked --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
       - name: Inherited recovery journal contention and audit suites
         run: |
           cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
