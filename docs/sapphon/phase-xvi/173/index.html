@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-173 · Critical-Step Completeness</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 13%,#482658,#090a1c 76%);color:#f5edff;font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #80629f}h1{font-size:clamp(24px,3vw,40px);margin:8px 0;text-shadow:0 0 22px #ce92ffa9}.sub,small{color:#cbbadb}main{max-width:1460px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(340px,2fr);gap:17px}.panel{background:#15122cdd;border:1px solid #82609b;box-shadow:0 0 36px #65428d59;border-radius:16px;overflow:hidden}canvas{display:block;width:100%;height:478px}.side{padding:19px}.metric{background:#1a1531;border:1px solid #6d5080;border-radius:9px;padding:12px;margin:9px 0}strong{color:#49ffe3}.hold{font-size:33px;font-weight:900;color:#ffae75;text-shadow:0 0 21px #ff834997}button{border:1px solid #c09ae6;background:#402c57;color:#fff;border-radius:8px;padding:10px;margin:4px;cursor:pointer}footer{text-align:center;padding:23px;color:#c0aed6}code{color:#b7ffed}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:330px}}</style></head><body>
+<header><small>PHASE XVI · BOUND 5/8 · 62.5% SOURCE DESIGN · 4D SYNTHETIC EVIDENCE LAB</small><h1>SAPPHON-173 · Critical-Step Completeness</h1><div class="sub">Exact commit → exact job → Python · Rust · 188 hashes → source-owned observation only</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Neon tesseract shadow showing the three source-test steps that must be observed for CI qualification"></canvas></section><section class="panel side">
+<div class="metric">Phase XVI design <strong>5 / 8 BOUNDS</strong></div>
+<div class="metric">Required step 1 <strong>PYTHON REGRESSIONS</strong></div>
+<div class="metric">Required step 2 <strong>RUST REGRESSIONS</strong></div>
+<div class="metric">Required step 3 <strong>188 HISTORICAL HASHES</strong></div>
+<div class="metric">Run identity <strong>EXACT SHA · JOB · ATTEMPT</strong></div>
+<div class="metric">Simulated state <strong id="status">NO RUN EVIDENCE</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="none">No evidence</button><button id="skip">Skipped Rust</button><button id="dupe">Duplicated job</button><button id="full">All steps pass</button>
+<p class="sub" id="note" role="status">A green parent job does not prove that the required tests ran.</p><small>This canvas is a simulation. Source and CI observations are collected by separate code, and no external custody is established here.</small></section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer><script>
+"use strict";const cv=document.getElementById("scene"),ctx=cv.getContext("2d");let t=0,mode=0;
+const states=[["NO RUN EVIDENCE","A green parent job does not prove that the required tests ran."],
+["RUST STEP SKIPPED","A skipped required step blocks a source-owned diagnostic pass."],
+["DUPLICATED JOB","Two matching job identities are not one witnessed execution."],
+["SOURCE-OWNED PASS ONLY","Three observed successful critical steps do not establish independent custody."]];
+function choose(n){mode=n;document.getElementById("status").textContent=states[n][0];document.getElementById("note").textContent=states[n][1]}
+for(const[id,n]of [["none",0],["skip",1],["dupe",2],["full",3]])document.getElementById(id).onclick=()=>choose(n);
+const vertices=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(q){let[x,y,z,w]=q,a=t*.0058,b=t*.0037;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.78/(4-w),g=2.5/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090b1e";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.28,p=vertices.map(project);for(const[i,j]of edges){const axis=Math.log2(i^j),bad=mode!==3&&axis===mode,color=bad?"#ff4c7b":["#3affdf","#bf8bff","#ffae73","#91bfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=19;ctx.lineWidth=axis===3?2.3:1.46;ctx.stroke()}ctx.shadowBlur=0;ctx.fillStyle=mode===3?"#b3ffeb":"#ffbb93";ctx.font="12px monospace";ctx.fillText(["NO RUN → HOLD","SKIPPED RUST → HOLD","DUPLICATE JOB → HOLD","SOURCE-OWNED PASS ≠ CUSTODY"][mode],14,H-20);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
