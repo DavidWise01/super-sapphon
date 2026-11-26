@@ -68,7 +68,7 @@ jobs:
         run: |
           mkdir -p qualification-artifact
           python3 tools/sapphon_169_run_triage.py --sha 'e9f983e28da437b80b6c22be1107a099df381f38' \
-            --workflow sapphon-168-freeze.yml \
+            --workflow sapphon-169-triage.yml \
             --out qualification-artifact/170-predecessor-triage.json
       - name: Observe unqualified committed npm lockfile separately
         id: lock
