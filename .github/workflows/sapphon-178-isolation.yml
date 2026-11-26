@@ -1,0 +1,150 @@
+name: SAPPHON-178 Verified Job Failure Isolation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_171_job_logs.py'
+      - 'tools/test_sapphon_171_job_logs.py'
+      - 'tools/sapphon_178_*.py'
+      - '.github/workflows/sapphon-178-isolation.yml'
+      - 'docs/sapphon/phase-xvii/178/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  failure-isolation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python regression diagnostics
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_178_isolate.py
+          python3 tools/test_sapphon_171_job_logs.py
+          python3 tools/test_sapphon_177_evidence.py
+          python3 tools/test_sapphon_176_freeze.py
+          python3 tools/test_sapphon_175_observed.py
+          python3 tools/test_sapphon_174_outcomes.py
+          python3 tools/test_sapphon_173_critical_steps.py
+          python3 tools/test_sapphon_172_reconcile.py
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Rust compilation and inherited regression tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Recheck historical frozen source digests
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for mf in manifests:
+            for path,meta in json.loads(pathlib.Path(mf).read_text())['files'].items():
+              assert path not in seen,('duplicate',path)
+              seen.add(path);b=pathlib.Path(path).read_bytes()
+              assert len(b)==meta['bytes'],('size',path)
+              assert hashlib.sha256(b).hexdigest()==meta['sha256'],('digest',path)
+          assert len(seen)==188,len(seen)
+          print('PASS 188 frozen entries')
+          PY
+      - name: Retrieve exact SAPPHON-177 runner and failure details
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+             --sha 3053c21609333ea93d74ff2d38aeeed1c27d6084 \
+             --workflow sapphon-177-evidence.yml \
+             --required-job executable-diagnostics \
+             --out qualification-artifact/178-predecessor.json
+      - name: Isolate Python Rust and historical gates
+        id: isolation
+        continue-on-error: true
+        run: |
+          python3 tools/sapphon_178_isolate.py \
+             --input qualification-artifact/178-predecessor.json \
+             --out qualification-artifact/178-isolation.json
+      - name: Inspect provisional dependency lockfile
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/178-lock.json
+      - name: Check exact GitHub Pages source parity
+        id: pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/178-pages.json
+      - name: Preserve factual outcomes and HOLD
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          ISOLATION: ${{ steps.isolation.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PAGES: ${{ steps.pages.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('PYTHON','RUST','FROZEN','PREDECESSOR','ISOLATION','LOCK','PAGES')
+          outcomes={k:os.environ[k] for k in names}
+          report={'schema':'sapphon-178-runner-failures-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'step_outcomes':outcomes,
+            'owned_source_diagnostics_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'full_qualification':False,
+            'external_custody_authenticated':False,'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'FAILURE_ISOLATION_HOLD'}
+          pathlib.Path('qualification-artifact/178-summary.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload success and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-178-failure-isolation
+          path: qualification-artifact/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Block any real failing source diagnostic
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for kind in PYTHON RUST FROZEN; do
+            if [[ "${!kind}" != success ]]; then
+              echo "::error::$kind = ${!kind}; recovery HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned diagnostic success does not authorize external recovery."
