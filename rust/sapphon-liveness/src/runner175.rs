@@ -16,7 +16,7 @@ pub struct Step{pub name:String,pub conclusion:String}
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq,Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Input{pub expected_sha:String,pub observed_sha:String,pub run_id:Option<u64>,
- pub attempt:Option<u32>,pub result_page_exhausted:bool,
+ pub attempt:Option<u32>,pub exact_run_observed:bool,
  pub complete:bool,pub expected_job_unique:bool,pub run_success:bool,
  pub failed_child:bool,pub steps:Vec<Step>}
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq,Eq)]
@@ -35,7 +35,7 @@ pub fn inspect(x:&Input)->Result<Finding,Error>{
  if x.run_id.is_none_or(|n|n==0)||x.attempt.is_none_or(|n|n==0){
     blockers.push("RUN_IDENTITY_MISSING".to_owned());
  }
- if !x.result_page_exhausted{blockers.push("INCOMPLETE_SEARCH_SCOPE".to_owned());}
+ if !x.exact_run_observed{blockers.push("EXACT_RUN_NOT_OBSERVED".to_owned());}
  if !x.complete{blockers.push("RUN_INCOMPLETE".to_owned());}
  if !x.expected_job_unique{blockers.push("REQUIRED_JOB_AMBIGUOUS".to_owned());}
  if !x.run_success{blockers.push("RUN_NOT_SUCCESS".to_owned());}
@@ -76,14 +76,14 @@ pub fn write_new(path:&Path,r:&Finding)->Result<String,Error>{
 mod tests{
  use super::*;
  fn good()->Input{Input{expected_sha:"a".repeat(40),observed_sha:"a".repeat(40),
-   run_id:Some(175),attempt:Some(2),result_page_exhausted:true,complete:true,
+   run_id:Some(175),attempt:Some(2),exact_run_observed:true,complete:true,
    expected_job_unique:true,run_success:true,failed_child:false,
    steps:REQUIRED.iter().map(|s|Step{name:(*s).into(),conclusion:"success".into()}).collect()}}
  #[test]fn qualified_source_still_no_recovery(){
     let r=inspect(&good()).unwrap();
     assert!(r.source_owned_diagnostics_consistent&&!r.recovery_authorized);
  }
- #[test]fn incomplete_search_blocks(){let mut a=good();a.result_page_exhausted=false;
+ #[test]fn missing_exact_run_blocks(){let mut a=good();a.exact_run_observed=false;
     assert!(!inspect(&a).unwrap().source_owned_diagnostics_consistent);}
  #[test]fn old_green_missing_run_blocks(){let mut a=good();a.run_id=None;
     assert!(!inspect(&a).unwrap().source_owned_diagnostics_consistent);}
