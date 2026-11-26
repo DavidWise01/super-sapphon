@@ -1,0 +1,100 @@
+name: SAPPHON-154 CI Readback and Identity Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-154-readback.yml'
+      - 'docs/sapphon/phase-xiv/154/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run reconciler and inherited Rust tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Run inherited recovery and journal suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 historical freeze entries
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+            'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+            'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+            'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+            'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(path).read_bytes()
+                  assert len(data)==expected['bytes'],path
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historic frozen files')
+          PY
+      - name: Assert no operational authority
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/readback154.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+            'signature_or_source_authenticated:false',
+            'external_custody_authenticated:false',
+            'run_success_qualified:false',
+            'recovery_authorized:false',
+            'lock_cleared:false',
+            'SNAPSHOT_ONLY_HOLD'):
+              assert token in s,token
+          print('PASS HOLD invariants')
+          PY
+      - name: Rust API documentation
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Read back the previous SAPPHON-153 run from GitHub API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib,subprocess
+          result={'schema':'sapphon-154-readback-v1',
+            'checked_workflow':'sapphon-153-qualification.yml',
+            'status':'UNVERIFIED',
+            'independent_custody':False,
+            'recovery_authority':'HOLD'}
+          proc=subprocess.run(
+            ['gh','run','list','--repo',os.environ['GH_REPO'],
+             '--workflow','sapphon-153-qualification.yml','--limit','10',
+             '--json','databaseId,headSha,status,conclusion,event,attempt'],
+            capture_output=True,text=True,check=False)
+          if proc.returncode!=0:
+              result['status']='API_READBACK_ERROR'
+              result['error']=proc.stderr[:500]
+          else:
+              rows=json.loads(proc.stdout)
+              result['observations']=[{
+                  'run_id':r['databaseId'],'commit_sha':r['headSha'],
+                  'status':r['status'],'conclusion':r['conclusion'],
+                  'event':r['event'],'attempt':r.get('attempt')}
+                  for r in rows]
+              result['status']='OBSERVED_RUN_METADATA_ONLY'
+          pathlib.Path('qualification-artifact/153-run-observations.json').write_text(
+              json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload readback observations
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-154-run-metadata
+          path: qualification-artifact/153-run-observations.json
+          retention-days: 30
