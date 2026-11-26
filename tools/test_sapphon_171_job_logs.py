@@ -64,4 +64,17 @@ class T(unittest.TestCase):
   observed=m.classify(row(),[job(name="deterministic-diagnostics")],"diagnostics")
   self.assertFalse(observed["source_owned_success_observed"])
   self.assertEqual(observed["status"],"REQUIRED_JOB_MISSING")
+ def test_empty_step_list_does_not_pass(self):
+  j=job();j["steps"]=[]
+  x=m.classify(row(),[j])
+  self.assertFalse(x["source_owned_success_observed"])
+  self.assertFalse(x["required_steps_observed"])
+ def test_skipped_step_does_not_pass(self):
+  j=job();j["steps"][0]["conclusion"]="skipped"
+  x=m.classify(row(),[j])
+  self.assertFalse(x["source_owned_success_observed"])
+ def test_duplicate_expected_job_does_not_pass(self):
+  x=m.classify(row(),[job(),job()])
+  self.assertFalse(x["source_owned_success_observed"])
+  self.assertFalse(x["required_job_unique"])
 if __name__=="__main__":unittest.main()
