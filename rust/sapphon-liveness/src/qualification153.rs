@@ -53,7 +53,8 @@ pub fn assess(claims:&[EvidenceClaim])->Result<Gate,Error>{
             EvidenceKind::PagesDeployment=>2,EvidenceKind::CustodyRoot=>3,
             EvidenceKind::MonotonicAnchor=>4,
         };
-        if !kinds.insert(code)||!sha_valid(&c.claimed_commit_sha)
+        if !kinds.insert(code)||c.claimed_commit_sha.len()!=40
+           ||!c.claimed_commit_sha.bytes().all(|b|b.is_ascii_digit()||(b'a'..=b'f').contains(&b))
            ||c.claimed_locator.len()>2048{
             return Err(Error("QUAL153_CLAIM_FIELDS"));
         }
@@ -112,7 +113,7 @@ mod tests{
             EvidenceKind::PagesDeployment,EvidenceKind::CustodyRoot,
             EvidenceKind::MonotonicAnchor,
         ].into_iter().map(|kind|EvidenceClaim{
-            kind,claimed_commit_sha:"a".repeat(40+24),
+            kind,claimed_commit_sha:"a".repeat(40),
             claimed_locator:"https://github.com/example/fake".into(),
             readback:ReadbackState::NotObserved,independent_provenance:false,
         }).collect()
