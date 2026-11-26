@@ -115,6 +115,10 @@ mod tests{
     let mut x=sample();x.jobs[0].steps[0].conclusion="failure".into();
     assert_eq!(adjudicate(&x).unwrap().failed_steps.len(),1);
  }
+ #[test]fn failed_step_under_green_job_denies_pass(){
+    let mut x=sample();x.jobs[0].steps[0].conclusion="failure".into();
+    assert!(!adjudicate(&x).unwrap().completed_source_pass);
+ }
  #[test]fn failed_run_denies_pass(){
     let mut x=sample();x.conclusion="failure".into();
     assert!(!adjudicate(&x).unwrap().completed_source_pass);
