@@ -1,0 +1,24 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-170 · Latest-Attempt Failure Isolation</title>
+<style>*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 48% 12%,#452653,#080a1c 75%);color:#f3eeff;font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #7d609b}h1{font-size:clamp(24px,3vw,40px);margin:7px 0;text-shadow:0 0 23px #c58bffae}.muted,small{color:#c8bbd8}main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(340px,2fr);gap:17px}.panel{background:#16122ddd;border:1px solid #83639e;box-shadow:0 0 33px #5f3a906a;border-radius:16px;overflow:hidden}canvas{display:block;width:100%;height:476px}.side{padding:19px}.metric{background:#1b1531;border:1px solid #674c80;border-radius:9px;margin:9px 0;padding:12px}strong{color:#49ffe3}.hold{font-size:32px;color:#ffaf77;font-weight:900;text-shadow:0 0 22px #ff7f4097}button{background:#412b58;border:1px solid #c298e7;color:#fff;border-radius:8px;padding:10px;margin:4px;cursor:pointer}footer{color:#c6b6d5;padding:23px;text-align:center}code{color:#b4ffed}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:330px}}</style></head><body>
+<header><small>PHASE XVI · BOUND 2/8 · 25% SOURCE DESIGN · HYPOTHETICAL 4D FAILURE VIEW</small><h1>SAPPHON-170 · Latest-Attempt Failure Isolation</h1><div class="muted">Rust + Python diagnostics · stale-green replay denied · exact workflow/SHA pairing · owned-source ancestry</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Rotating neon four-dimensional tesseract demonstrating failed retry and missing job detection"></canvas></section><section class="panel side">
+<div class="metric">Decision rule <strong>NEWEST MATCHING ATTEMPT</strong></div>
+<div class="metric">Required CI job <strong>EXACT NAME REQUIRED</strong></div>
+<div class="metric">Source checks <strong>RUST · PYTHON · 188 FROZEN FILES</strong></div>
+<div class="metric">npm lockfile <strong>PROVISIONAL · UNQUALIFIED</strong></div>
+<div class="metric">Synthetic scenario <strong id="state">MISSING RUN EVIDENCE</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="missing">No run</button><button id="old">Old green + new red</button><button id="job">Missing job</button><button id="green">Latest green</button>
+<p class="muted" id="note" role="status">A commit and an empty status lookup cannot prove that any runner passed.</p><small>Controls simulate states. Actual GitHub CI logs and live Pages validation are separate, not represented as completed here.</small></section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer><script>
+"use strict";const cv=document.getElementById("scene"),ctx=cv.getContext("2d");let t=0,mode=0;
+const states=[["MISSING RUN EVIDENCE","A commit and an empty status lookup cannot prove that any runner passed."],
+["LATEST ATTEMPT FAILED","An old successful run must never conceal the newest failing source-owned attempt."],
+["REQUIRED JOB ABSENT","A missing expected job cannot be replaced by an unrelated green check."],
+["GITHUB-OWNED PASS ONLY","A successful observed GitHub run still does not prove independent custody or recovery authority."]];
+function choose(n){mode=n;document.getElementById("state").textContent=states[n][0];document.getElementById("note").textContent=states[n][1]}
+for(const[id,n]of [["missing",0],["old",1],["job",2],["green",3]])document.getElementById(id).onclick=()=>choose(n);
+const vs=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function projection(q){let[x,y,z,w]=q,a=t*.0057,b=t*.0038;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.78/(4-w),g=2.5/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090b1e";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.278,p=vs.map(projection);for(const[i,j]of edges){const axis=Math.log2(i^j),bad=mode!==3&&axis===mode,color=bad?"#ff4c79":["#37ffe1","#ca91ff","#ffad73","#8ebeff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=18;ctx.lineWidth=axis===3?2.3:1.45;ctx.stroke()}ctx.shadowBlur=0;ctx.fillStyle=mode===3?"#b5ffe9":"#ffbf94";ctx.font="12px monospace";ctx.fillText(["NO RUN = UNVERIFIED","OLDER GREEN ≠ LATEST PASS","REQUIRED JOB MISSING → HOLD","GITHUB PASS ≠ EXTERNAL CUSTODY"][mode],14,H-20);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
