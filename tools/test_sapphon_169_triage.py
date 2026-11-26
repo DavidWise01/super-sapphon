@@ -67,4 +67,14 @@ class Tests(unittest.TestCase):
   x=m.analyze([old,new],SHA)
   self.assertEqual(x["selected_attempt"],2)
   self.assertFalse(x["completed_success_observed"])
+ def test_correct_phase_xvi_job_binding(self):
+  r=run();r[0]["jobs"][0]["name"]="runtime-evidence"
+  x=m.analyze(r,SHA,"runtime-evidence")
+  self.assertTrue(x["completed_success_observed"])
+ def test_wrong_job_binding_denied(self):
+  r=run();r[0]["jobs"][0]["name"]="runtime-evidence"
+  x=m.analyze(r,SHA,"final-freeze")
+  self.assertFalse(x["completed_success_observed"])
+ def test_unknown_job_rejected(self):
+  with self.assertRaises(ValueError):m.analyze(run(),SHA,"unknown")
 if __name__=="__main__":unittest.main()
