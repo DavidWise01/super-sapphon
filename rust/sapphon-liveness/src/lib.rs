@@ -73,6 +73,8 @@ pub mod promotion167;
 pub mod freeze168;
 #[cfg(target_os = "linux")]
 pub mod runtime169;
+#[cfg(target_os = "linux")]
+pub mod isolate170;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
