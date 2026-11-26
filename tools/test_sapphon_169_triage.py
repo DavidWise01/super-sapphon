@@ -48,4 +48,23 @@ class Tests(unittest.TestCase):
  def test_cancelled_step_retained(self):
   x=m.analyze(run(conclusion="cancelled",job="cancelled",step="cancelled"),SHA)
   self.assertEqual(x["failed_jobs"][0]["step"]["conclusion"],"cancelled")
+ def test_old_green_run_cannot_mask_newer_failure(self):
+  old=run()[0]
+  new=run(conclusion="failure",job="failure",step="failure")[0]
+  new["id"]=170
+  x=m.analyze([old,new],SHA)
+  self.assertEqual(x["selected_run_id"],170)
+  self.assertFalse(x["completed_success_observed"])
+ def test_missing_required_job_denies_green(self):
+  r=run();r[0]["jobs"][0]["name"]="unrelated"
+  x=m.analyze(r,SHA)
+  self.assertFalse(x["completed_success_observed"])
+  self.assertFalse(x["required_job_present"])
+ def test_new_attempt_failure_denies_green(self):
+  old=run()[0]
+  new=run(conclusion="failure",job="failure",step="failure")[0]
+  new["run_attempt"]=2
+  x=m.analyze([old,new],SHA)
+  self.assertEqual(x["selected_attempt"],2)
+  self.assertFalse(x["completed_success_observed"])
 if __name__=="__main__":unittest.main()
