@@ -1,0 +1,143 @@
+name: SAPPHON-172 Failure-Specific Runner Evidence Reconciliation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_171_job_logs.py'
+      - 'tools/test_sapphon_171_job_logs.py'
+      - 'tools/sapphon_172_*.py'
+      - '.github/workflows/sapphon-172-reconcile.yml'
+      - 'docs/sapphon/phase-xvi/172/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnostic-reconciliation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute targeted Python regression suites
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_171_job_logs.py
+          python3 tools/test_sapphon_172_reconcile.py
+          python3 tools/test_sapphon_169_triage.py
+          python3 tools/test_sapphon_165_lock.py
+          python3 tools/test_sapphon_166_candidate.py
+          python3 tools/test_sapphon_167_promotion.py
+      - name: Run Rust all-target check and inherited test suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Fetch exact SAPPHON-171 predecessor run, jobs and failed log excerpts
+        id: logs
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+             --workflow sapphon-171-joblogs.yml \
+             --sha 9e7fc8ad8c3b05a3e12f1c3aa0c15b4c99c2e18e \
+             --required-job diagnostics \
+             --out qualification-artifact/172-predecessor-logs.json
+      - name: Reconcile latest attempt and failed-job evidence
+        id: review
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/sapphon_172_reconcile.py \
+             --input qualification-artifact/172-predecessor-logs.json \
+             --out qualification-artifact/172-reconciliation.json
+      - name: Recheck all 188 protected historical file hashes
+        id: historical
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+             'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for manifest in manifests:
+              for name,e in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  assert name not in seen,('duplicate',name)
+                  seen.add(name);b=pathlib.Path(name).read_bytes()
+                  assert len(b)==e['bytes'],('size',name)
+                  assert hashlib.sha256(b).hexdigest()==e['sha256'],('sha256',name)
+          assert len(seen)==188,len(seen)
+          print('PASS all 188 protected historical entries')
+          PY
+      - name: Inspect existing provisional npm lock, without mutation
+        id: lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/172-lock.json
+      - name: Compare four deployed Pages assets against exact source
+        id: pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/172-pages.json
+      - name: Record source diagnostics separately from full qualification
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          LOGS: ${{ steps.logs.outcome }}
+          REVIEW: ${{ steps.review.outcome }}
+          HISTORICAL: ${{ steps.historical.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PAGES: ${{ steps.pages.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('PYTHON','RUST','LOGS','REVIEW','HISTORICAL','LOCK','PAGES')
+          r={'schema':'sapphon-172-run-evidence-v1',
+             'commit_sha':os.environ['GITHUB_SHA'],
+             'run_id':os.environ['GITHUB_RUN_ID'],
+             'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+             'outcomes':{x:os.environ[x] for x in names},
+             'source_diagnostics_pass':all(os.environ[x]=='success' for x in ('PYTHON','RUST','HISTORICAL')),
+             'full_qualification':False,
+             'external_custody_authenticated':False,'global_anti_rollback_authenticated':False,
+             'recovery_authorized':False,'lock_cleared':False,
+             'decision':'FAILED_STEP_RECONCILIATION_HOLD'}
+          pathlib.Path('qualification-artifact/172-run-summary.json').write_text(json.dumps(r,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload all available evidence on success and failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-172-evidence-reconciliation
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Block on actual source test and historical integrity failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          HISTORICAL: ${{ steps.historical.outcome }}
+        run: |
+          for key in PYTHON RUST HISTORICAL; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; HOLD"
+              exit 1
+            fi
+          done
+          echo 'Owned source diagnostics completed. Lock, Pages, external custody and recovery remain HOLD.'
