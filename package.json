@@ -1,0 +1,8 @@
+{
+  "name": "sapphon-browser-acceptance",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SAPPHON GitHub-owned Chromium acceptance runner",
+  "scripts": {"test:browser": "node tools/sapphon_162_browser.cjs"},
+  "devDependencies": {"playwright": "1.65.1"}
+}
