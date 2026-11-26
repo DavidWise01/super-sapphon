@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-162 · Interactive Browser Qualification</title>
+<style>*{box-sizing:border-box}body{margin:0;color:#f4eeff;background:radial-gradient(ellipse at 50% 14%,#402153,#080b1c 74%);font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #7f589e}h1{font-size:clamp(23px,3vw,40px);margin:6px 0;text-shadow:0 0 20px #c18cffc0}
+main{max-width:1500px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(335px,2fr);gap:16px}.panel{background:#15112ce0;border:1px solid #7c5a98;border-radius:16px;box-shadow:0 0 35px #603d8d5a;overflow:hidden}canvas{display:block;width:100%;height:480px}.side{padding:19px}.metric{border:1px solid #60457c;padding:12px;margin:9px 0;border-radius:9px;background:#1a1332}.hold{font-size:32px;color:#ffab73;text-shadow:0 0 19px #ff774997;font-weight:900}strong{color:#42ffe1}button{color:#fff;background:#3c2655;border:1px solid #b68ce6;padding:10px 12px;border-radius:8px;margin:4px;cursor:pointer}.muted,small{color:#c9b8d6}footer{text-align:center;padding:22px;color:#bdaed0}code{color:#b8ffee}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:335px}}</style></head><body>
+<header><small>PHASE XV · BOUND 2/8 · 25% DESIGN · SYNTHETIC 4D VIEW</small><h1>SAPPHON-162 · Interactive Chromium Qualification</h1><div class="muted">Real browser interaction assertions now authored · separate from live execution evidence</div></header>
+<main><section class="panel"><canvas id="field" aria-label="Animated 4D neon tesseract showing browser and Rust qualification scenarios"></canvas></section><section class="panel side">
+<div class="metric">Browser acceptance <strong>8 DOM TRANSITIONS AUTHORED</strong></div>
+<div class="metric">Target pages <strong>SAPPHON-160 + SAPPHON-161</strong></div>
+<div class="metric">Historic frozen files <strong>188 CHECK CONFIGURED</strong></div>
+<div class="metric">CI readback <strong>COMPLETED RUN UNVERIFIED</strong></div>
+<div class="metric">Scenario <strong id="finding">CHECKS PENDING</strong></div>
+<div class="metric">Independent custody <strong>NOT QUALIFIED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="neutral">Pending</button><button id="compiler">Compile failure</button><button id="interaction">Interaction failure</button><button id="conflict">Evidence conflict</button>
+<p class="muted" id="note" role="status">A test committed to GitHub is not yet a verified successful test run.</p>
+<small>This viewer simulates evidence states. It does not authenticate GitHub Actions, Chromium execution or physical custody.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer><script>
+"use strict";const canvas=document.getElementById("field"),ctx=canvas.getContext("2d");let t=0,mode=0;
+const state=[["CHECKS PENDING","A test committed to GitHub is not yet a verified successful test run."],["RUST FAILURE RETAINED","Compiler and Rust failures must remain visible until verified repairs pass."],["BROWSER TRANSITION FAILED","A screenshot does not replace click and DOM outcome assertions."],["PROVENANCE CONFLICT","Contradictory evidence remains evidence, and must not be promoted into authority."]];
+function choose(i){mode=i;document.getElementById("finding").textContent=state[i][0];document.getElementById("note").textContent=state[i][1]}
+for(const [id,i]of [["neutral",0],["compiler",1],["interaction",2],["conflict",3]])document.getElementById(id).onclick=()=>choose(i);
+const verts=Array.from({length:16},(_,i)=>[0,1,2,3].map(k=>i&(1<<k)?1:-1)),edges=[];for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(q){let[x,y,z,w]=q,a=t*.0059,b=t*.0034;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.75/(4-w),g=2.5/(4.45-z*f);return[x*f*g,y*f*g]}
+function render(){const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#080a1b";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.28,p=verts.map(project);
+for(const[i,j]of edges){const axis=Math.log2(i^j),bad=mode&&axis===mode-1,color=bad?"#ff3d78":["#37ffe2","#c18aff","#ffa968","#87c0ff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=19;ctx.lineWidth=axis===3?2.2:1.45;ctx.stroke()}
+ctx.shadowBlur=0;ctx.fillStyle=mode?"#ffb287":"#b2ffed";ctx.font="12px monospace";ctx.fillText(["AUTHORED TESTS ≠ VERIFIED RUN","RUST FAIL → HOLD","INTERACTION FAIL → HOLD","PROVENANCE CONFLICT → HOLD"][mode],15,H-20);t++;requestAnimationFrame(render)}render();
+</script></body></html>
