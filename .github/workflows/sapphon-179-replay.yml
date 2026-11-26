@@ -1,0 +1,119 @@
+name: SAPPHON-179 Provenance Bound Failure Replay
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_179_*.py'
+      - 'tools/test_sapphon_179_replay.py'
+      - 'tools/sapphon_171_job_logs.py'
+      - '.github/workflows/sapphon-179-replay.yml'
+      - 'docs/sapphon/phase-xvii/179/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  replay-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute local provenance-replay regression tests
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_179_replay.py
+          python3 tools/test_sapphon_178_isolate.py
+          python3 tools/test_sapphon_171_job_logs.py
+      - name: Compile Rust and run inherited tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Re-verify all 188 historical frozen files read-only
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Acquire exact SAPPHON-178 runner attempt and failures
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha 71931a8602229cecad921297aabe633e810fb211 \
+            --workflow sapphon-178-isolation.yml \
+            --required-job failure-isolation \
+            --out qualification-artifact/179-predecessor.json
+      - name: Generate bounded replay plan from observed evidence
+        id: replay
+        continue-on-error: true
+        run: |
+          python3 tools/sapphon_179_replay.py \
+            --evidence qualification-artifact/179-predecessor.json \
+            --out qualification-artifact/179-replay-plan.json
+      - name: Inspect existing provisional npm lockfile
+        id: lock
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/179-lock.json
+      - name: Preserve all outcomes, without authorizing recovery
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          REPLAY: ${{ steps.replay.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('PYTHON','RUST','FROZEN','PREDECESSOR','REPLAY','LOCK')
+          states={n:os.environ[n] for n in names}
+          result={'schema':'sapphon-179-replay-outcomes-v1',
+            'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'step_outcomes':states,
+            'source_diagnostics_pass':all(states[n]=='success' for n in ('PYTHON','RUST','FROZEN')),
+            'replay_commands_executed':False,
+            'independent_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'PROVENANCE_BOUND_REPLAY_HOLD'}
+          pathlib.Path('qualification-artifact/179-summary.json').write_text(
+             json.dumps(result,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload pass and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-179-provenance-replay
+          path: qualification-artifact/
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail only on actual current source diagnostic failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for n in PYTHON RUST FROZEN; do
+            if [[ "${!n}" != success ]]; then
+              echo "::error::$n = ${!n}; source gate failed"
+              exit 1
+            fi
+          done
+          echo "Current GitHub source diagnostics passed; predecessor evidence and recovery remain separately gated."
