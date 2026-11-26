@@ -1,0 +1,25 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-171 · Exact Job-Log Recovery</title><style>
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 52% 13%,#412352,#090b1c 76%);color:#f6efff;font:15px system-ui,sans-serif}header{padding:24px 5vw;border-bottom:1px solid #7e60a0}h1{font-size:clamp(23px,3vw,40px);margin:8px 0;text-shadow:0 0 21px #c88cffaf}.muted,small{color:#c9badb}main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(338px,2fr);gap:16px}.panel{background:#15112cdd;border:1px solid #80619c;box-shadow:0 0 38px #68419159;border-radius:16px;overflow:hidden}canvas{display:block;width:100%;height:478px}.side{padding:20px}.metric{background:#1a1532;border:1px solid #684d83;border-radius:9px;padding:12px;margin:9px 0}strong{color:#47ffe4}.hold{font-size:32px;color:#ffae76;font-weight:900;text-shadow:0 0 22px #ff7d468a}button{border:1px solid #be98df;background:#412b57;color:#fff;padding:10px;border-radius:8px;margin:4px;cursor:pointer}footer{text-align:center;padding:22px;color:#bdaed3}code{color:#b7ffe9}@media(max-width:850px){main{grid-template-columns:1fr}canvas{height:330px}}</style></head>
+<body><header><small>PHASE XVI · BOUND 3/8 · 37.5% SOURCE DESIGN · SYNTHETIC 4D RUN VIEW</small>
+<h1>SAPPHON-171 · Exact Job-Log Recovery</h1><div class="muted">Git SHA → workflow → run/attempt → job → failed step → bounded excerpt · recovery HOLD</div></header>
+<main><section class="panel"><canvas id="view" aria-label="Animated neon four-dimensional tesseract illustrating GitHub run log provenance and failed step detection"></canvas></section><section class="panel side">
+<div class="metric">Workflow identity <strong>EXACT NAME REQUIRED</strong></div>
+<div class="metric">Run identity <strong>PINNED COMMIT + ATTEMPT</strong></div>
+<div class="metric">Log preservation <strong>REDACTED · BOUNDED</strong></div>
+<div class="metric">Historical source freeze <strong>188 CHECKS CONFIGURED</strong></div>
+<div class="metric">Simulated status <strong id="status">LOG READBACK UNAVAILABLE</strong></div>
+<div class="metric">Operational authority <div class="hold">HOLD</div></div>
+<button id="missing">Missing logs</button><button id="wrong">Wrong job</button><button id="failure">Failed step</button><button id="pass">Source pass</button><p class="muted" id="note" role="status">An inaccessible job log cannot certify passing or failing execution.</p>
+<small>These are synthetic controls. This page does not fetch live GitHub Actions logs or authenticate physical custody.</small></section></main>
+<footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer><script>
+"use strict";const cv=document.getElementById("view"),ctx=cv.getContext("2d");let t=0,mode=0;const states=[
+["LOG READBACK UNAVAILABLE","An inaccessible job log cannot certify passing or failing execution."],
+["WRONG WORKFLOW/JOB","A green job under another workflow name is not matching evidence."],
+["FAILED STEP RETAINED","A failed job or step must be recorded and diagnosed before any repair claim."],
+["GITHUB-OWNED PASS ONLY","Even a real GitHub source-owned pass does not establish independent custody."]];
+function set(n){mode=n;document.getElementById("status").textContent=states[n][0];document.getElementById("note").textContent=states[n][1]}
+for(const[id,n]of [["missing",0],["wrong",1],["failure",2],["pass",3]])document.getElementById(id).onclick=()=>set(n);
+const v=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),e=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)e.push([i,j]);
+function project(q){let[x,y,z,w]=q,a=t*.006,b=t*.0037;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.78/(4-w),g=2.52/(4.4-z*f);return[x*f*g,y*f*g]}
+function draw(){const r=cv.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090a1e";ctx.fillRect(0,0,W,H);const k=Math.min(W,H)*.275,p=v.map(project);for(const[i,j]of e){const ax=Math.log2(i^j),bad=mode!==3&&ax===mode,col=bad?"#ff4d7a":["#34ffe3","#c48cff","#ffb078","#8fbfff"][ax];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.strokeStyle=col;ctx.shadowColor=col;ctx.shadowBlur=19;ctx.lineWidth=ax===3?2.3:1.45;ctx.stroke()}ctx.shadowBlur=0;ctx.font="12px monospace";ctx.fillStyle=mode===3?"#b2ffeb":"#ffbf98";ctx.fillText(["UNAVAILABLE LOG ≠ PASS","WRONG WORKFLOW → HOLD","FAILED STEP → HOLD","SOURCE PASS ≠ CUSTODY"][mode],14,H-19);t++;requestAnimationFrame(draw)}draw();</script></body></html>
