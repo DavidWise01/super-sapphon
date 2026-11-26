@@ -77,4 +77,25 @@ class T(unittest.TestCase):
   x=m.classify(row(),[job(),job()])
   self.assertFalse(x["source_owned_success_observed"])
   self.assertFalse(x["required_job_unique"])
+ def test_paginated_second_page_match(self):
+  pages=[]
+  def fake(uri):
+   pages.append(uri)
+   if "page=1" in uri:
+    return {"workflow_runs":[{"id":n+1,"head_sha":"b"*40,"run_attempt":1} for n in range(100)]}
+   return {"workflow_runs":[row()]}
+  picked,state,count=m.paged_runs("sapphon-174-outcomes.yml",SHA,api_call=fake)
+  self.assertEqual(state,"EXACT_RUN_OBSERVED")
+  self.assertEqual(count,2)
+  self.assertEqual(picked["id"],170)
+ def test_paginated_exhaustion_is_not_failure(self):
+  picked,state,count=m.paged_runs("sapphon-174-outcomes.yml",SHA,api_call=lambda uri:{"workflow_runs":[]})
+  self.assertIsNone(picked)
+  self.assertEqual(state,"NO_MATCHING_RUN_IN_EXHAUSTED_PAGES")
+ def test_paginated_cap_is_not_exhaustion(self):
+  def full(uri):
+   return {"workflow_runs":[{"id":n+1,"head_sha":"b"*40,"run_attempt":1} for n in range(100)]}
+  picked,state,count=m.paged_runs("sapphon-174-outcomes.yml",SHA,max_pages=2,api_call=full)
+  self.assertIsNone(picked)
+  self.assertEqual(state,"RUN_SEARCH_INCOMPLETE_PAGE_CAP")
 if __name__=="__main__":unittest.main()
