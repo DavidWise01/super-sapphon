@@ -1,0 +1,149 @@
+name: SAPPHON-165 Registry Lock Candidate and Qualification Recovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tools/sapphon_165_*.py'
+      - 'tools/test_sapphon_165_lock.py'
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-165-recover.yml'
+      - 'docs/sapphon/phase-xv/165/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  candidate-lock-and-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify offline lock inspector adversarial tests
+        id: inspection_tests
+        continue-on-error: true
+        run: python3 tools/test_sapphon_165_lock.py
+      - name: Record expected committed-draft deficiency
+        id: old_lock
+        continue-on-error: true
+        run: python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/165-committed-draft.json
+      - name: Recreate candidate lock from actual npm registry
+        id: registry
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          cp package-lock.json qualification-artifact/165-prior-provisional-lock.json
+          rm package-lock.json
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/165-registry-candidate-inspection.json
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -e "for(const n of ['playwright','playwright-core']){if(require(n+'/package.json').version!=='1.65.1')process.exit(1)}"
+          cp package-lock.json qualification-artifact/165-registry-candidate-package-lock.json
+          sha256sum qualification-artifact/165-registry-candidate-package-lock.json > qualification-artifact/165-candidate-sha256.txt
+          echo 'Registry-derived candidate produced; must separately commit exact bytes. No custody authority.'
+      - name: Run inherited Rust tests and typecheck
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify historical 188 files unchanged
+        id: frozen
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          files=('docs/sapphon/SAPPHON-096-FREEZE.json','docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+             'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+             'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+             'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          seen=set()
+          for mf in files:
+              for name,expected in json.loads(pathlib.Path(mf).read_text())['files'].items():
+                  assert name not in seen,('duplicate frozen file',name)
+                  seen.add(name)
+                  data=pathlib.Path(name).read_bytes()
+                  assert len(data)==expected['bytes'] and hashlib.sha256(data).hexdigest()==expected['sha256'],name
+          assert len(seen)==188,len(seen)
+          print('PASS all 188 frozen historical files')
+          PY
+      - name: Source-owned Chromium acceptance
+        id: chromium
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          test '${{ steps.registry.outcome }}' = success
+          npx --no-install playwright install --with-deps chromium
+          node tools/sapphon_162_browser.cjs
+      - name: Four-page exact-byte parity from pinned current source SHA
+        id: parity
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}'
+      - name: Record every outcome and commit-candidate limitation
+        if: always()
+        env:
+          TESTS: ${{ steps.inspection_tests.outcome }}
+          OLD_LOCK: ${{ steps.old_lock.outcome }}
+          REGISTRY: ${{ steps.registry.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          keys=('TESTS','OLD_LOCK','REGISTRY','RUST','FROZEN','CHROMIUM','PARITY')
+          status={x:os.environ[x] for x in keys}
+          record={'schema':'sapphon-165-run-v1','source_commit':os.environ['GH_SHA'],
+            'run_id':os.environ['GH_RUN'],'attempt':os.environ['GH_ATTEMPT'],
+            'outcomes':status,'candidate_lock_committed_to_source':False,
+            'external_custody_authenticated':False,'global_anti_rollback_authenticated':False,
+            'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/165-run-summary.json').write_text(json.dumps(record,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Always retain candidate and diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-165-registry-lock-candidate
+          path: qualification-artifact/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail closed until candidate lock is committed and all checks pass
+        if: always()
+        env:
+          TESTS: ${{ steps.inspection_tests.outcome }}
+          OLD_LOCK: ${{ steps.old_lock.outcome }}
+          REGISTRY: ${{ steps.registry.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          CHROMIUM: ${{ steps.chromium.outcome }}
+          PARITY: ${{ steps.parity.outcome }}
+        run: |
+          for key in TESTS REGISTRY RUST FROZEN CHROMIUM PARITY; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key: ${!key}"
+              exit 1
+            fi
+          done
+          if [[ "$OLD_LOCK" != success ]]; then
+            echo "::error::Committed provisional lock is not yet qualified; candidate artifact must be reviewed and committed."
+            exit 1
+          fi
+          echo "GitHub-owned CI observation passed; external custody and recovery HOLD."
