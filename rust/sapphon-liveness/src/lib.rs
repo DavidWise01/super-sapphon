@@ -45,6 +45,8 @@ pub mod blind151;
 pub mod freeze152;
 #[cfg(target_os = "linux")]
 pub mod qualification153;
+#[cfg(target_os = "linux")]
+pub mod readback154;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
