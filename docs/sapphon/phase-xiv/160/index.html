@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SAPPHON-160 · Phase XIV Freeze</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;color:#f3edff;background:radial-gradient(ellipse at 52% 16%,#36224e,#080a18 73%);font:15px system-ui,sans-serif}
+header{padding:25px 5vw;border-bottom:1px solid #795c9b}h1{margin:7px 0;font-size:clamp(25px,3vw,40px);text-shadow:0 0 23px #ad79ffb0}
+main{max-width:1480px;margin:20px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,3fr) minmax(330px,2fr);gap:17px}
+.panel{border:1px solid #725595;border-radius:16px;overflow:hidden;background:#15122be0;box-shadow:0 0 33px #60378860}canvas{width:100%;height:490px;display:block}
+.side{padding:19px}.metric{border:1px solid #5b4977;border-radius:9px;background:#191430;margin:10px 0;padding:12px}
+strong{color:#46ffe0}.hold{color:#ffa36a;font-size:32px;font-weight:900;text-shadow:0 0 21px #ff804481}
+button{background:#36254e;border:1px solid #b68bda;color:#fff;padding:10px 12px;margin:4px;border-radius:8px;cursor:pointer}
+.muted,small{color:#c5b4d4}footer{text-align:center;color:#b9abd3;padding:23px}code{color:#b0ffec}
+@media(max-width:830px){main{grid-template-columns:1fr}canvas{height:336px}}
+</style></head><body>
+<header><small>PHASE XIV · FINAL DESIGN BOUND 8/8 · 100% SOURCE DESIGN · SYNTHETIC VISUALIZATION</small>
+<h1>SAPPHON-160 · Final Evidence Reconciliation</h1>
+<div class="muted">One source ancestry · eight Rust bounds · four registers · three pumps · 4D tesseract shadow</div></header>
+<main><section class="panel"><canvas id="scene" aria-label="Rotating neon four-dimensional tesseract showing Phase XIV evidence provenance, disputed chain and recovery HOLD"></canvas></section>
+<section class="panel side">
+<div class="metric">Phase XIV source-design progression <strong>100% · 8 / 8</strong></div>
+<div class="metric">Frozen historic manifest declarations <strong>188 ENTRIES</strong></div>
+<div class="metric">CI / browser qualification <strong>NOT VERIFIED HERE</strong></div>
+<div class="metric">Evidence scenario <strong id="status">DESIGN COMPLETE</strong></div>
+<div class="metric">Independent physical custody <strong>UNQUALIFIED</strong></div>
+<div class="metric">Recovery authority <div class="hold">HOLD</div></div>
+<button id="normal">Design freeze</button><button id="ci">Unverified CI</button><button id="fork">Signed fork</button><button id="custody">Shared ancestry</button>
+<p class="muted" id="note" role="status">The source design is complete; passing tests, deployment and independent custody remain separate obligations.</p>
+<small>These animations are hypothetical, not live verification. This page does not execute Rust, inspect real GitHub Actions, or authenticate external physical custody.</small>
+</section></main><footer><code>{r[g(b → 0xyz/.|.\ )]} · {{i}} · .dlw</code></footer>
+<script>
+"use strict";const canvas=document.getElementById("scene"),ctx=canvas.getContext("2d");let t=0,mode=0;
+const scenarios=[
+["DESIGN COMPLETE","The source design is complete; passing tests, deployment and independent custody remain separate obligations."],
+["CI NOT INDEPENDENTLY VERIFIED","A source commit and an empty status-check result do not certify passing CI."],
+["SIGNED HISTORIES DIVERGE","Same-height signed fork evidence is retained. Different heights alone do not imply equivocation."],
+["ONE SHARED SOURCE ANCESTRY","GitHub, its runner artifacts, and GitHub Pages are not independent physical custodians."]
+];
+function choose(i){mode=i;document.getElementById("status").textContent=scenarios[i][0];document.getElementById("note").textContent=scenarios[i][1]}
+for(const [id,i] of [["normal",0],["ci",1],["fork",2],["custody",3]])document.getElementById(id).onclick=()=>choose(i);
+const v=Array.from({length:16},(_,i)=>[0,1,2,3].map(j=>i&(1<<j)?1:-1)),edges=[];
+for(let i=0;i<16;i++)for(let j=i+1;j<16;j++)if(((i^j)&((i^j)-1))===0)edges.push([i,j]);
+function project(q){let[x,y,z,w]=q,a=t*.006,b=t*.0036;[x,w]=[x*Math.cos(a)-w*Math.sin(a),x*Math.sin(a)+w*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];let f=2.75/(4-w),g=2.5/(4.45-z*f);return[x*f*g,y*f*g]}
+function draw(){let r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1),W=r.width,H=r.height;canvas.width=Math.round(W*d);canvas.height=Math.round(H*d);ctx.setTransform(d,0,0,d,0,0);ctx.fillStyle="#090b1f";ctx.fillRect(0,0,W,H);let k=Math.min(W,H)*.275,p=v.map(project);
+for(const [i,j] of edges){let axis=Math.log2(i^j),bad=(mode===1&&axis===0)||(mode===2&&axis===3)||(mode===3&&axis===1),color=bad?"#ff4a7c":["#38ffe3","#c38bff","#ffa768","#8abfff"][axis];ctx.beginPath();ctx.moveTo(W/2+p[i][0]*k,H/2+p[i][1]*k);ctx.lineTo(W/2+p[j][0]*k,H/2+p[j][1]*k);ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=19;ctx.lineWidth=axis===3?2.3:1.45;ctx.stroke()}
+ctx.shadowBlur=0;ctx.fillStyle=mode?"#ffaf8d":"#b2ffed";ctx.font="12px monospace";ctx.fillText(["DESIGN COMPLETE · AUTHORITY HOLD","NO VERIFIED CI → HOLD","SIGNED FORK → HOLD","SHARED ANCESTRY ≠ WITNESS"][mode],15,H-20);t++;requestAnimationFrame(draw)}draw();
+</script></body></html>
