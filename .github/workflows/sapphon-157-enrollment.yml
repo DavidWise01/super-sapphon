@@ -1,0 +1,81 @@
+name: SAPPHON-157 External Custodian Enrollment Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-157-enrollment.yml'
+      - 'docs/sapphon/phase-xiv/157/**'
+permissions:
+  contents: read
+jobs:
+  enrollment:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Rust enrollment and inherited liveness tests
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Run inherited recovery, contention, journal and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify 188 frozen historical sources
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          files=('docs/sapphon/SAPPHON-096-FREEZE.json',
+           'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+           'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+           'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+           'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in files:
+              for path,expected in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  data=pathlib.Path(path).read_bytes()
+                  assert len(data)==expected['bytes'],path
+                  assert hashlib.sha256(data).hexdigest()==expected['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historic frozen source files')
+          PY
+      - name: Verify receipt signatures never authorize recovery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/enrollment157.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+            'independent_custody_authenticated:false',
+            'accepted_as_external_custodian:false',
+            'recovery_authorized:false','lock_cleared:false',
+            'ENROLLMENT_HOLD'):
+              assert token in s,token
+          print('PASS no-authority source controls')
+          PY
+      - name: Build Rust documentation
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Produce explicit unenrolled-custodian report
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          evidence=dict(schema='sapphon-157-custodian-qualification-v1',
+            repository=os.environ['GH_REPO'],commit_sha=os.environ['GH_SHA'],
+            github_run_id=os.environ['GH_RUN'],
+            externally_provisioned_root_authenticated=False,
+            independent_custodian_enrolled=False,recovery_authority='HOLD')
+          pathlib.Path('qualification-artifact/157-unenrolled.json').write_text(
+            json.dumps(evidence,sort_keys=True,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-157-unenrolled
+          path: qualification-artifact/157-unenrolled.json
+          retention-days: 30
