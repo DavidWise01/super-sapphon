@@ -94,7 +94,7 @@ def main():
     p.add_argument("--fixture",help="offline JSON input for deterministic diagnostics")
     p.add_argument("--out",default="qualification-artifact/169-run-triage.json")
     a=p.parse_args()
-    if a.workflow!="sapphon-168-freeze.yml":p.error("unknown workflow")
+    if a.workflow not in ("sapphon-168-freeze.yml","sapphon-169-triage.yml"):p.error("unknown workflow")
     try:
         if a.fixture:
             runs=json.loads(pathlib.Path(a.fixture).read_text())
