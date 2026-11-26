@@ -1,0 +1,89 @@
+name: SAPPHON-159 Signed Nonce Ledger & Fork Detection
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - '.github/workflows/sapphon-159-nonce-ledger.yml'
+      - 'docs/sapphon/phase-xiv/159/**'
+permissions:
+  contents: read
+jobs:
+  nonce-ledger:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust nonce replay and fork tests including inherited liveness
+        run: cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Inherited recovery, contention, journal and audit suites
+        run: |
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Validate 188 historical source freezes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          manifests=('docs/sapphon/SAPPHON-096-FREEZE.json',
+              'docs/sapphon/phase-vii/SAPPHON-104-FREEZE.json',
+              'docs/sapphon/phase-viii/SAPPHON-112-FREEZE.json',
+              'docs/sapphon/phase-ix/SAPPHON-120-FREEZE.json',
+              'docs/sapphon/phase-x/SAPPHON-128-FREEZE.json')
+          n=0
+          for manifest in manifests:
+              for path,expect in json.loads(pathlib.Path(manifest).read_text())['files'].items():
+                  content=pathlib.Path(path).read_bytes()
+                  assert len(content)==expect['bytes'],path
+                  assert hashlib.sha256(content).hexdigest()==expect['sha256'],path
+                  n+=1
+          assert n==188,n
+          print(f'PASS {n}/188 historical source files')
+          PY
+      - name: Enforce HOLD and fork evidence controls
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('rust/sapphon-liveness/src/nonce159.rs').read_text()
+          for token in ('pub const AUTHORITY:&str="HOLD"',
+             'LEDGER159_NONCE_REPLAY','LEDGER159_COUNTER_REPLAY',
+             'LEDGER159_PINNED_HEAD_CONFLICT','EquivocationAtSameSequence',
+             'external_floor_authenticated:false',
+             'independent_custody_authenticated:false',
+             'global_anti_rollback_authenticated:false',
+             'recovery_authorized:false','lock_cleared:false','LEDGER_HOLD'):
+              assert token in s,token
+          print('PASS source authority and evidence gates')
+          PY
+      - name: Build Rust API docs
+        run: cargo doc --manifest-path rust/sapphon-liveness/Cargo.toml --no-deps
+      - name: Publish explicitly unqualified source-origin observation
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_SHA: ${{ github.sha }}
+          GH_RUN: ${{ github.run_id }}
+          GH_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          record={'schema':'sapphon-159-run-observation-v1',
+                  'repository':os.environ['GH_REPO'],
+                  'commit_sha':os.environ['GH_SHA'],
+                  'run_id':os.environ['GH_RUN'],
+                  'attempt':os.environ['GH_ATTEMPT'],
+                  'external_checkpoint_custody_authenticated':False,
+                  'physical_custody_authenticated':False,
+                  'global_anti_rollback_authenticated':False,
+                  'recovery_authority':'HOLD'}
+          pathlib.Path('qualification-artifact/159-hold.json').write_text(
+              json.dumps(record,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload run observation without external custody claim
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-159-hold-observation
+          path: qualification-artifact/159-hold.json
+          retention-days: 30
