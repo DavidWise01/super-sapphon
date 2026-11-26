@@ -63,6 +63,8 @@ pub mod freeze160;
 pub mod diagnostic161;
 #[cfg(target_os = "linux")]
 pub mod triage162;
+#[cfg(target_os = "linux")]
+pub mod parity163;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
