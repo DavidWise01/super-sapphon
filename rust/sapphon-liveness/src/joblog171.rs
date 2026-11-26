@@ -57,7 +57,8 @@ pub fn adjudicate(o:&Observation)->Result<Decision,Error>{
  let exact=o.expected_sha==o.observed_sha;
  let required=names.contains("deterministic-diagnostics");
  let pass=exact&&required&&o.status=="completed"&&o.conclusion=="success"
-   &&!o.jobs.is_empty()&&o.jobs.iter().all(|j|j.conclusion=="success");
+   &&!o.jobs.is_empty()&&failed.is_empty()
+   &&o.jobs.iter().all(|j|j.conclusion=="success");
  let mut reasons=Vec::new();
  if !exact{reasons.push("COMMIT_MISMATCH".to_owned());}
  if !required{reasons.push("REQUIRED_JOB_MISSING".to_owned());}
