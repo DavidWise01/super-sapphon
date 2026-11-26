@@ -32,7 +32,7 @@ def evaluate(head,records,files,lock):
         v=records.get(k)
         if v not in ("success","failure","skipped","cancelled","timed_out","not_observed"):
             findings.append("UNSUPPORTED_STATUS:"+k)
-    source_pass=all(records.get(k)=="success" for k in ("PYTHON","RUST","FROZEN"))
+    source_pass=all(records.get(k)=="success" for k in ("PYTHON","RUST","FROZEN")) and not any(\n        x.startswith("UNSUPPORTED_STATUS:") for x in findings)
     if any(records.get(k)=="not_observed" for k in CHECKS):findings.append("INCOMPLETE_RUN_READBACK")
     try:
         parsed=json.loads(lock)
@@ -50,7 +50,7 @@ def evaluate(head,records,files,lock):
         "recorded_outcomes":{k:records.get(k,"not_observed") for k in CHECKS},
         "committed_lock_sha256":digest(lock),"committed_lock_integrity_present":integrity_present,
         "findings":sorted(set(findings)),
-        "phase_design_complete":len(source)==8 and "BAD_HEAD" not in findings,
+        "phase_design_complete":len(source)==8 and not any(\n            x=="BAD_HEAD" or x=="MISSING_BOUND" or x.startswith("MISSING_SOURCE:")\n            or x.startswith("UNSUPPORTED_STATUS:") for x in findings),
         "ci_success_independently_verified":False,
         "npm_lock_qualified":False,"pages_verified":False,
         "independent_external_custody":False,"global_anti_rollback_authenticated":False,
