@@ -1,0 +1,134 @@
+name: SAPPHON-182 Cross-File Archive Provenance
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_182_*.py'
+      - 'tools/test_sapphon_182_crossfile.py'
+      - '.github/workflows/sapphon-182-crossfile.yml'
+      - 'docs/sapphon/phase-xvii/182/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  crossfile-adjudication:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python archive consistency regression suites
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_182_crossfile.py
+          python3 tools/test_sapphon_181_zip.py
+          python3 tools/test_sapphon_180_bind.py
+      - name: Compile and test Rust provenance modules
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify the inherited 188 immutable source records
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Acquire original SAPPHON-180 archive without releasing bytes
+        id: acquisition
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          PRIVATE_DIR="$(mktemp -d)"
+          chmod 700 "$PRIVATE_DIR"
+          echo "PRIVATE_DIR=$PRIVATE_DIR" >> "$GITHUB_ENV"
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_181_acquire.py \
+            --private-dir "$PRIVATE_DIR" \
+            --out qualification-artifact/182-acquisition.json
+      - name: Cross-check three archive records in memory
+        id: crossfile
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [[ -n "${PRIVATE_DIR:-}" && -f "$PRIVATE_DIR/181-original-artifact.zip" && -f "$PRIVATE_DIR/181-manifest.json" ]]; then
+            python3 tools/sapphon_182_crossfile.py \
+              --zip "$PRIVATE_DIR/181-original-artifact.zip" \
+              --manifest "$PRIVATE_DIR/181-manifest.json" \
+              --out qualification-artifact/182-crossfile.json
+          else
+            python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('qualification-artifact/182-crossfile.json')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps({'schema':'sapphon-182-evidence-unavailable-v1',
+            'status':'ORIGINAL_ARCHIVE_NOT_OBSERVED',
+            'archive_records_structurally_consistent':False,
+            'complete_predecessor_and_raw_byte_evidence':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CROSS_FILE_PROVENANCE_HOLD'},indent=2,sort_keys=True)+'\n')
+          PY
+          fi
+      - name: Remove private original logs, manifests and ZIP bytes
+        if: always()
+        run: |
+          if [[ -n "${PRIVATE_DIR:-}" && -d "$PRIVATE_DIR" ]]; then
+            rm -f -- "$PRIVATE_DIR/181-original-job.log" "$PRIVATE_DIR/181-original-artifact.zip" "$PRIVATE_DIR/181-manifest.json"
+            rmdir "$PRIVATE_DIR" || true
+          fi
+      - name: Record current diagnostics separately from acquisition
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUISITION: ${{ steps.acquisition.outcome }}
+          CROSSFILE: ${{ steps.crossfile.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          stages=('PYTHON','RUST','FROZEN','ACQUISITION','CROSSFILE')
+          status={s:os.environ[s] for s in stages}
+          report={'schema':'sapphon-182-owned-outcomes-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':status,
+            'source_tests_pass':all(status[s]=='success' for s in ('PYTHON','RUST','FROZEN')),
+            'external_metadata_authenticated':False,'full_qualification':False,
+            'independent_custody_authenticated':False,'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CROSS_FILE_PROVENANCE_HOLD'}
+          pathlib.Path('qualification-artifact/182-summary.json').write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload sanitized metadata and consistency findings only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-182-cross-file-provenance
+          path: |
+            qualification-artifact/182-acquisition.json
+            qualification-artifact/182-crossfile.json
+            qualification-artifact/182-summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail on executable source tests or historical hash errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for n in PYTHON RUST FROZEN; do
+            if [[ "${!n}" != success ]]; then
+              echo "::error::$n = ${!n}; source tests HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned tests checked. Original archive and external custody are separate gates; recovery HOLD."
