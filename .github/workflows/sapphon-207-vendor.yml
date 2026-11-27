@@ -1,0 +1,172 @@
+name: SAPPHON-207 Vendor Archive and Local OCI Image Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_207_*.py'
+      - 'tools/test_sapphon_207_*.py'
+      - '.github/workflows/sapphon-207-vendor.yml'
+      - 'docs/sapphon/phase-xx/207/**'
+      - 'tools/sapphon-207.Dockerfile'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  bounded-vendor-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python vendor byte/tar safety regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_207_vendor.py
+          python3 tools/test_sapphon_206_import_lock.py
+      - name: Rust provenance regressions
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Historical source verification remains read-only
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Generate actual bounded vendor bytes and locked offline check
+        id: vendor
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact qualification-artifact/vendor
+          cargo generate-lockfile --manifest-path rust/sapphon-liveness/Cargo.toml
+          test -s rust/sapphon-liveness/Cargo.lock
+          cp rust/sapphon-liveness/Cargo.lock qualification-artifact/207-Cargo.lock
+          cargo vendor --locked --manifest-path rust/sapphon-liveness/Cargo.toml \
+            "$PWD/qualification-artifact/vendor" > "$RUNNER_TEMP/sapphon207-cargo-config.toml"
+          export CARGO_HOME="$RUNNER_TEMP/sapphon207-cargo-home"
+          mkdir -p "$CARGO_HOME"
+          cp "$RUNNER_TEMP/sapphon207-cargo-config.toml" "$CARGO_HOME/config.toml"
+          CARGO_NET_OFFLINE=true cargo check --locked --offline --all-targets \
+            --manifest-path rust/sapphon-liveness/Cargo.toml
+          python3 tools/sapphon_207_vendor.py \
+            --vendor qualification-artifact/vendor \
+            --lock qualification-artifact/207-Cargo.lock \
+            --offline-check-observed \
+            --report-out qualification-artifact/207-vendor.json \
+            --tar-out qualification-artifact/207-vendor.tar
+          rm -rf qualification-artifact/vendor
+      - name: Local image evidence requires pinned actual base digest
+        id: image
+        if: steps.vendor.outcome == 'success'
+        continue-on-error: true
+        env:
+          BASE: ${{ vars.SAPPHON_RUST_BASE_IMAGE }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BASE" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]]; then
+            echo "::warning::No exact pinned base image digest configured; no image qualification."
+            exit 1
+          fi
+          docker pull "$BASE"
+          docker image inspect "$BASE" > qualification-artifact/207-base-image.json
+          mkdir -p qualification-artifact/docker-context/.cargo
+          cp qualification-artifact/207-Cargo.lock qualification-artifact/docker-context/Cargo.lock
+          cp qualification-artifact/207-vendor.tar qualification-artifact/docker-context/vendor.tar
+          cp -a rust qualification-artifact/docker-context/rust
+          cat > qualification-artifact/docker-context/.cargo/config.toml <<'EOF'
+          [source.crates-io]
+          replace-with = "vendored-sources"
+          [source.vendored-sources]
+          directory = "/src/vendor"
+          [net]
+          offline = true
+          EOF
+          docker build --network=none --pull=false --build-arg "BASE=$BASE" \
+            -f tools/sapphon-207.Dockerfile \
+            -t sapphon207:local qualification-artifact/docker-context
+          docker image inspect sapphon207:local > qualification-artifact/207-built-image.json
+          docker save sapphon207:local -o qualification-artifact/207-image.tar
+          sha256sum qualification-artifact/207-image.tar > qualification-artifact/207-image.sha256
+          python3 - <<'PY'
+          import hashlib,json,pathlib,os
+          raw=pathlib.Path('qualification-artifact/207-image.tar').read_bytes()
+          image=json.loads(pathlib.Path('qualification-artifact/207-built-image.json').read_text())[0]
+          base=json.loads(pathlib.Path('qualification-artifact/207-base-image.json').read_text())[0]
+          body={'schema':'sapphon-207-local-image-v1','source_owned':True,
+          'base_ref':os.environ['BASE'],'base_local_id':base['Id'],
+          'built_image_local_id':image['Id'],'archive_sha256':hashlib.sha256(raw).hexdigest(),
+          'external_custody_authenticated':False,'independent_witnesses':0,
+          'recovery_authorized':False,'lock_cleared':False}
+          pathlib.Path('qualification-artifact/207-image-report.json').write_text(
+            json.dumps(body,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Record executed steps and distinguish image from source archive
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          VENDOR: ${{ steps.vendor.outcome }}
+          IMAGE: ${{ steps.image.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','VENDOR','IMAGE')}
+          p=pathlib.Path('qualification-artifact/207-vendor.json')
+          vendor=json.loads(p.read_text()) if p.exists() else {}
+          f=pathlib.Path('qualification-artifact/207-image-report.json')
+          image=json.loads(f.read_text()) if f.exists() else {}
+          body={'schema':'sapphon-207-source-owned-run-v1',
+           'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+           'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'steps':steps,
+           'vendor_tree_sha256':vendor.get('tree_sha256'),
+           'vendor_archive_sha256':vendor.get('archive_sha256'),
+           'offline_check_observed':steps['VENDOR']=='success',
+           'built_image_local_id':image.get('built_image_local_id'),
+           'built_image_archive_sha256':image.get('archive_sha256'),
+           'image_source_owned_observed':steps['IMAGE']=='success',
+           'image_independently_attested':False,
+           'independent_witnesses':0,'authenticated_utc':False,
+           'global_anti_rollback_authenticated':False,
+           'recovery_authorized':False,'lock_cleared':False,
+           'decision':'PHASE_XX_VENDOR_IMAGE_HOLD'}
+          pathlib.Path('qualification-artifact/207-summary.json').write_text(
+            json.dumps(body,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Preserve vendor byte archive and optional original local image evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-207-vendor-and-local-image
+          path: |
+            qualification-artifact/207-Cargo.lock
+            qualification-artifact/207-vendor.tar
+            qualification-artifact/207-vendor.json
+            qualification-artifact/207-image-report.json
+            qualification-artifact/207-image.sha256
+            qualification-artifact/207-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail source or vendor checks, leave missing image explicitly held
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          VENDOR: ${{ steps.vendor.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN VENDOR; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; vendor provenance HOLD"
+              exit 1
+            fi
+          done
+          echo "Owned vendor bytes checked; external image/witness/recovery qualification remains HOLD."
