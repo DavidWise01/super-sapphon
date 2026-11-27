@@ -1,0 +1,142 @@
+name: SAPPHON-184 Phase XVII Final Source Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_184_*.py'
+      - 'tools/test_sapphon_184_freeze.py'
+      - '.github/workflows/sapphon-184-freeze.yml'
+      - 'docs/sapphon/phase-xvii/184/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  final-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Phase XVII Python regression tests
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_184_freeze.py
+          python3 tools/test_sapphon_183_contradictions.py
+          python3 tools/test_sapphon_182_crossfile.py
+          python3 tools/test_sapphon_181_zip.py
+          python3 tools/test_sapphon_180_bind.py
+          python3 tools/test_sapphon_179_replay.py
+          python3 tools/test_sapphon_178_isolate.py
+          python3 tools/test_sapphon_177_evidence.py
+          python3 tools/test_sapphon_171_job_logs.py
+      - name: Rust all-target build and inherited tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Verify all 188 protected historical hashes
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Record exact predecessor workflow and job readback
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha 9745ac2fb25233db2cdd150421b8b5f95ac3e9d7 \
+            --workflow sapphon-183-contradictions.yml \
+            --required-job contradiction-adjudication \
+            --out qualification-artifact/184-predecessor.json
+      - name: Inspect existing provisional dependency lockfile
+        id: lock
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_165_lock_inspect.py --out qualification-artifact/184-lock.json
+      - name: Check exact source Pages parity independently
+        id: pages
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/sapphon_164_pages_parity.py --commit '${{ github.sha }}' --out qualification-artifact/184-pages.json
+      - name: Build exact eight-bound source freeze from real checkout
+        id: inventory
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          LOCK: ${{ steps.lock.outcome }}
+          PAGES: ${{ steps.pages.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          states={k:"not_observed" for k in (
+            "PYTHON","RUST","FROZEN","RUN_READBACK","ARTIFACT_READBACK",
+            "CONTRADICTIONS","PAGES","NPM_LOCK")}
+          for src,dst in (("PYTHON","PYTHON"),("RUST","RUST"),
+                          ("FROZEN","FROZEN"),("PREDECESSOR","RUN_READBACK"),
+                          ("LOCK","NPM_LOCK"),("PAGES","PAGES")):
+            value=os.environ[src]
+            states[dst]=value if value in ("success","failure","skipped","cancelled","timed_out") else "not_observed"
+          record={"schema":"sapphon-184-runner-outcomes-v1",
+            "commit":os.environ["GITHUB_SHA"],
+            "run_id":os.environ["GITHUB_RUN_ID"],
+            "attempt":os.environ["GITHUB_RUN_ATTEMPT"],
+            "outcomes":states,
+            "source_checks_pass":all(states[k]=="success" for k in ("PYTHON","RUST","FROZEN")),
+            "full_qualification":False,
+            "external_custody_authenticated":False,
+            "recovery_authorized":False,"lock_cleared":False,
+            "decision":"PHASE_XVII_DESIGN_FREEZE_QUALIFICATION_HOLD"}
+          pathlib.Path("qualification-artifact/184-outcomes.json").write_text(
+            json.dumps(record,indent=2,sort_keys=True)+"\n")
+          PY
+          python3 tools/sapphon_184_freeze.py \
+            --head '${{ github.sha }}' \
+            --outcomes qualification-artifact/184-outcomes.json \
+            --out qualification-artifact/184-freeze.json
+          git diff --exit-code -- package-lock.json
+      - name: Preserve only structured freeze and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-184-final-phase-xvii-freeze
+          path: |
+            qualification-artifact/184-freeze.json
+            qualification-artifact/184-outcomes.json
+            qualification-artifact/184-predecessor.json
+            qualification-artifact/184-lock.json
+            qualification-artifact/184-pages.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail closed on source tests or freeze inventory failure
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          INVENTORY: ${{ steps.inventory.outcome }}
+        run: |
+          for name in PYTHON RUST FROZEN INVENTORY; do
+            if [[ "${!name}" != success ]]; then
+              echo "::error::$name = ${!name}; source verification HOLD"
+              exit 1
+            fi
+          done
+          echo "Phase XVII source freeze observed on GitHub runner; external qualification and recovery HOLD."
