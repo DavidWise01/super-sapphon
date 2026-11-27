@@ -1,0 +1,116 @@
+name: SAPPHON-189 Custody-Rooted Cross-Run Fork Detection
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_189_*.py'
+      - 'tools/test_sapphon_189_*.py'
+      - '.github/workflows/sapphon-189-forks.yml'
+      - 'docs/sapphon/phase-xviii/189/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  fork-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Python fork and original archive provenance gates
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_189_forks.py
+          python3 tools/test_sapphon_189_acquire.py
+          python3 tools/test_sapphon_188_import.py
+          python3 tools/test_sapphon_187_ledger.py
+      - name: Typecheck Rust and execute inherited regression suite
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify inherited historical 188 frozen records
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Acquire exact predecessor original artifact without forging witnesses
+        id: acquire
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_189_acquire.py \
+            --out qualification-artifact/189-acquisition.json \
+            --claims qualification-artifact/189-claims.json
+      - name: Detect same-lineage GitHub-owned root forks
+        id: forks
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          if [[ ! -f qualification-artifact/189-claims.json ]]; then
+            printf '[]\n' > qualification-artifact/189-claims.json
+          fi
+          python3 tools/sapphon_189_forks.py \
+            --claims qualification-artifact/189-claims.json \
+            --out qualification-artifact/189-forks.json
+      - name: Record actual source outcomes separately from custody
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUIRE: ${{ steps.acquire.outcome }}
+          FORKS: ${{ steps.forks.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','ACQUIRE','FORKS')}
+          acquisition=pathlib.Path('qualification-artifact/189-acquisition.json')
+          provenance=json.loads(acquisition.read_text()) if acquisition.is_file() else {}
+          data={'schema':'sapphon-189-owned-outcomes-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,'acquisition_status':provenance.get('status','NOT_OBSERVED'),
+            'source_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'independent_custody_authenticated':False,
+            'independent_witnesses':0,'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CUSTODY_ROOT_FORK_HOLD'}
+          pathlib.Path('qualification-artifact/189-summary.json').write_text(
+            json.dumps(data,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload redacted findings and original ancestry labels
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-189-fork-diagnostics
+          path: |
+            qualification-artifact/189-acquisition.json
+            qualification-artifact/189-claims.json
+            qualification-artifact/189-forks.json
+            qualification-artifact/189-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail source checks if actual Python Rust or historical verification failed
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; source gate HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned results evaluated; no independent witnesses or recovery authority asserted."
