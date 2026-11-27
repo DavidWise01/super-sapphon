@@ -1,0 +1,107 @@
+name: SAPPHON-206 Original Cargo Lock Import and Image Custody Gate
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_206_*.py'
+      - 'tools/test_sapphon_206_*.py'
+      - '.github/workflows/sapphon-206-import.yml'
+      - 'docs/sapphon/phase-xx/206/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  imported-lock-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Original lock SHA and run-attempt negative controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_206_import_lock.py
+          python3 tools/test_sapphon_205_lock_provenance.py
+          python3 tools/test_sapphon_204_offline_rust.py
+      - name: Compile Rust and test inherited source-only provenance
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Immutable historical source verification
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Read original 205 lockfile artifact; refuse synthetic bytes
+        id: acquire
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_206_import_lock.py \
+            --out qualification-artifact/206-import.json \
+            --lock-out qualification-artifact/206-Cargo.lock
+      - name: Verify source-owned artifact cannot certify missing vendor/image bytes
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUIRE: ${{ steps.acquire.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','ACQUIRE')}
+          path=pathlib.Path('qualification-artifact/206-import.json')
+          item=json.loads(path.read_text()) if path.is_file() else {}
+          state={'schema':'sapphon-206-owned-run-v1',
+             'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+             'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+             'steps':steps,'lock_bytes_observed':item.get('original_lock_observed') is True,
+             'lockfile_sha256':item.get('lockfile_sha256'),
+             'original_205_artifact_state':item.get('state','NOT_OBSERVED'),
+             'source_lockfile_committed':False,
+             'original_vendor_bytes_observed':False,'offline_image_qualified':False,
+             'rust_replay_executed':False,'independent_witnesses':0,
+             'authenticated_utc':False,'external_custody_authenticated':False,
+             'global_anti_rollback_authenticated':False,
+             'recovery_authorized':False,'lock_cleared':False,
+             'decision':'PHASE_XX_LOCK_IMPORT_HOLD'}
+          pathlib.Path('qualification-artifact/206-summary.json').write_text(
+            json.dumps(state,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Preserve observed source-owned original lock and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-206-original-lock-import
+          path: |
+            qualification-artifact/206-import.json
+            qualification-artifact/206-Cargo.lock
+            qualification-artifact/206-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail source regressions and missing original 205 lock
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUIRE: ${{ steps.acquire.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN ACQUIRE; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; original Cargo.lock import HOLD"
+              exit 1
+            fi
+          done
+          echo "Original lock observed if present; vendor image, witnesses and recovery remain HOLD."
