@@ -1,0 +1,117 @@
+name: SAPPHON-193 Phase XIX Observed Runner Failure Repair
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_171_job_logs.py'
+      - 'tools/sapphon_193_*.py'
+      - 'tools/test_sapphon_193_triage.py'
+      - '.github/workflows/sapphon-193-triage.yml'
+      - 'docs/sapphon/phase-xix/193/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  runner-failure-triage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python exact-run diagnostics and inherited regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_193_triage.py
+          python3 tools/test_sapphon_192_freeze.py
+          python3 tools/test_sapphon_191_challenges.py
+          python3 tools/test_sapphon_171_job_logs.py
+      - name: Compile and test Rust runner failure diagnostic
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify protected 188 historical immutable files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Read exact pinned SAPPHON-192 run, attempt, jobs and failed logs
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha 9c3734c78bab40690ca1f5f9b65e29362193a1bf \
+            --workflow sapphon-192-freeze.yml \
+            --required-job final-source-freeze \
+            --out qualification-artifact/193-readback.json
+      - name: Classify any observed Python Rust frozen or inventory failures
+        id: triage
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/sapphon_193_triage.py \
+            --readback qualification-artifact/193-readback.json \
+            --out qualification-artifact/193-diagnostic.json
+      - name: Preserve distinct present, missing and failed observations
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          TRIAGE: ${{ steps.triage.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','PREDECESSOR','TRIAGE')}
+          p=pathlib.Path('qualification-artifact/193-diagnostic.json')
+          detail=json.loads(p.read_text()) if p.exists() else {}
+          record={'schema':'sapphon-193-source-run-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,'triage_findings':detail.get('blockers',[]),
+            'triage_unobserved':detail.get('unobserved',[]),
+            'source_owned_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'phase_xviii_frozen_sources_modified':False,
+            'external_custody_authenticated':False,'independent_witnesses':0,
+            'authenticated_utc':False,'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'PHASE_XIX_OBSERVED_RUNNER_REPAIR_HOLD'}
+          pathlib.Path('qualification-artifact/193-summary.json').write_text(
+            json.dumps(record,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload sanitized actual runner observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-193-exact-run-failure-triage
+          path: |
+            qualification-artifact/193-readback.json
+            qualification-artifact/193-diagnostic.json
+            qualification-artifact/193-summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail current source execution errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned tests observed on runner; independent custody and recovery HOLD."
