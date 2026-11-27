@@ -1,0 +1,102 @@
+name: SAPPHON-191 Single-Use Proof-of-Possession Challenge
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_191_*.py'
+      - 'tools/test_sapphon_191_*.py'
+      - '.github/workflows/sapphon-191-challenges.yml'
+      - 'docs/sapphon/phase-xviii/191/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  challenge-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run challenge, replay, and inherited enrollment controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_191_challenges.py
+          python3 tools/test_sapphon_190_enrollment.py
+          python3 tools/test_sapphon_189_forks.py
+      - name: Compile Rust and verify signed challenge binding
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check all 188 immutable history entries
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Produce explicit no-external-challenge preflight record
+        id: preflight
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          printf '[]\n' > qualification-artifact/191-issued.json
+          printf '[]\n' > qualification-artifact/191-responses.json
+          python3 tools/sapphon_191_challenges.py \
+            --challenges qualification-artifact/191-issued.json \
+            --responses qualification-artifact/191-responses.json \
+            --out qualification-artifact/191-adjudication.json
+      - name: Record executable diagnostics separately from custody
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','PREFLIGHT')}
+          report={'schema':'sapphon-191-source-results-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,
+            'source_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'external_challenges_observed':False,'independently_enrolled_keys':0,
+            'independent_witnesses':0,'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CHALLENGE_PROOF_OF_POSSESSION_HOLD'}
+          pathlib.Path('qualification-artifact/191-summary.json').write_text(
+            json.dumps(report,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload sanitized challenge results only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-191-challenge-preflight
+          path: |
+            qualification-artifact/191-adjudication.json
+            qualification-artifact/191-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Block failed source tests and historical hash checks
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+        run: |
+          for n in PYTHON RUST FROZEN PREFLIGHT; do
+            if [[ "${!n}" != success ]]; then
+              echo "::error::$n = ${!n}; HOLD"
+              exit 1
+            fi
+          done
+          echo "Challenge preflight complete; external challenge issuance and recovery HOLD."
