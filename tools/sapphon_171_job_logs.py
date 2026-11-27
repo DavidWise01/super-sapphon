@@ -120,6 +120,7 @@ def main():
       "sapphon-182-crossfile.yml":("bcc82842d0ebc090db6fb3b32c978a75db3cf9fd","crossfile-adjudication"),
       "sapphon-183-contradictions.yml":("9745ac2fb25233db2cdd150421b8b5f95ac3e9d7","contradiction-adjudication"),
       "sapphon-184-freeze.yml":("edb582df9db3873d2fe308d219ed30b412d1b06d","final-freeze"),
+      "sapphon-191-challenges.yml":("5e637d47cca0dcdd92f653e3b0b4e7000535997b","challenge-preflight"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
