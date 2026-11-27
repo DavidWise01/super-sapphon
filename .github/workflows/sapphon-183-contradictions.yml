@@ -1,0 +1,154 @@
+name: SAPPHON-183 Completed Run Contradiction Adjudication
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_183_*.py'
+      - 'tools/test_sapphon_183_contradictions.py'
+      - 'tools/sapphon_171_job_logs.py'
+      - '.github/workflows/sapphon-183-contradictions.yml'
+      - 'docs/sapphon/phase-xvii/183/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  contradiction-adjudication:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Python evidence contradiction regression suites
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_183_contradictions.py
+          python3 tools/test_sapphon_182_crossfile.py
+          python3 tools/test_sapphon_181_zip.py
+      - name: Typecheck and test inherited Rust provenance modules
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify all 188 historical frozen SHA-256 records
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Acquire exact SAPPHON-182 run and job step readback
+        id: job
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha bcc82842d0ebc090db6fb3b32c978a75db3cf9fd \
+            --workflow sapphon-182-crossfile.yml \
+            --required-job crossfile-adjudication \
+            --out qualification-artifact/183-job.json
+      - name: Acquire source-owned diagnostic JSON from original ZIP
+        id: archive
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_183_collect.py \
+            --directory qualification-artifact/183-internal \
+            --out qualification-artifact/183-acquired.json
+      - name: Adjudicate the runner acquisition cross-file and job contradictions
+        id: reconcile
+        continue-on-error: true
+        run: |
+          python3 - <<'PY'
+          import json,pathlib
+          root=pathlib.Path('qualification-artifact')
+          internal=root/'183-internal'
+          needed={
+            '182-summary.json':{'schema':'sapphon-182-owned-outcomes-v1',
+              'commit':'bcc82842d0ebc090db6fb3b32c978a75db3cf9fd',
+              'run_id':None,'attempt':None,
+              'outcomes':{n:'not_observed' for n in ('PYTHON','RUST','FROZEN','ACQUISITION','CROSSFILE')},
+              'source_tests_pass':False,'full_qualification':False,
+              'recovery_authorized':False,'lock_cleared':False},
+            '182-acquisition.json':{'schema':'sapphon-181-acquisition-v1',
+              'source_sha':'dd1d778c522aa18fb399c052958f05c4f5b02dd9',
+              'status':'READBACK_UNAVAILABLE','source_owned_bytes_observed':False,
+              'recovery_authorized':False},
+            '182-crossfile.json':{'schema':'sapphon-182-evidence-unavailable-v1',
+              'status':'ORIGINAL_ARCHIVE_NOT_OBSERVED','recovery_authorized':False,
+              'lock_cleared':False}}
+          internal.mkdir(parents=True,exist_ok=True)
+          for filename,value in needed.items():
+            target=internal/filename
+            if not target.is_file():target.write_text(json.dumps(value,indent=2,sort_keys=True)+'\n')
+          if not (root/'183-job.json').is_file():
+            (root/'183-job.json').write_text(json.dumps({
+              'schema':'sapphon-171-job-log-triage-v1',
+              'expected_sha':'bcc82842d0ebc090db6fb3b32c978a75db3cf9fd',
+              'workflow':'sapphon-182-crossfile.yml','status':'READBACK_UNAVAILABLE',
+              'observed':None,'recovery_authorized':False,
+              'independent_custody_authenticated':False},sort_keys=True,indent=2)+'\n')
+          PY
+          python3 tools/sapphon_183_contradictions.py \
+            --runner qualification-artifact/183-internal/182-summary.json \
+            --acquisition qualification-artifact/183-internal/182-acquisition.json \
+            --crossfile qualification-artifact/183-internal/182-crossfile.json \
+            --job qualification-artifact/183-job.json \
+            --out qualification-artifact/183-adjudication.json
+      - name: Record source tests and evidence readback independently
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          JOB: ${{ steps.job.outcome }}
+          ARCHIVE: ${{ steps.archive.outcome }}
+          RECONCILE: ${{ steps.reconcile.outcome }}
+        run: |
+          python3 - <<'PY'
+          import os,pathlib,json
+          names=('PYTHON','RUST','FROZEN','JOB','ARCHIVE','RECONCILE')
+          steps={n:os.environ[n] for n in names}
+          report={'schema':'sapphon-183-runner-ledger-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,
+            'source_checks_pass':all(steps[n]=='success' for n in ('PYTHON','RUST','FROZEN')),
+            'full_qualification':False,
+            'external_custody_authenticated':False,'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'COMPLETED_RUN_CONTRADICTION_HOLD'}
+          p=pathlib.Path('qualification-artifact/183-summary.json')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload sanitized diagnosis and run identity findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-183-contradiction-findings
+          path: |
+            qualification-artifact/183-acquired.json
+            qualification-artifact/183-adjudication.json
+            qualification-artifact/183-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Block actual Python Rust or frozen-source execution failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for n in PYTHON RUST FROZEN; do
+            if [[ "${!n}" != success ]]; then
+              echo "::error::$n = ${!n}; diagnostic HOLD"
+              exit 1
+            fi
+          done
+          echo "GitHub-owned source checks may pass, but original archive and recovery authority remain separate."
