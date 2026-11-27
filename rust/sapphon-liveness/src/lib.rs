@@ -99,6 +99,8 @@ pub mod binding180;
 pub mod archive181;
 #[cfg(target_os = "linux")]
 pub mod crossfile182;
+#[cfg(target_os = "linux")]
+pub mod contradictions183;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
