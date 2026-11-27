@@ -1,0 +1,101 @@
+name: SAPPHON-199 Immutable Parent Replay and Retention Pressure
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_199_*.py'
+      - 'tools/test_sapphon_199_*.py'
+      - '.github/workflows/sapphon-199-retention.yml'
+      - 'docs/sapphon/phase-xix/199/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-parent-retention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test original ZIP parent retention and inherited ledger
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_199_retention.py
+          python3 tools/test_sapphon_198_import.py
+          python3 tools/test_sapphon_197_ledger.py
+      - name: Compile and test Rust original parent pressure and inherited safety
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Check all 188 protected historical files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Reacquire exact SAPPHON-198 original ledger and parent
+        id: retention
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_199_retention.py --out qualification-artifact/199-parent.json
+      - name: Record source-owned evidence, not an external deletion claim
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          RETENTION: ${{ steps.retention.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          states={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','RETENTION')}
+          p=pathlib.Path('qualification-artifact/199-parent.json')
+          record=json.loads(p.read_text()) if p.is_file() else {}
+          body={'schema':'sapphon-199-source-results-v1',
+            'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'steps':states,
+            'source_owned_tests_pass':all(states[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'original_parent_verified':record.get('original_parent_verified') is True,
+            'parent_state':record.get('state','NOT_OBSERVED'),
+            'inherited_forks':len(record.get('inherited_forks',[])),
+            'deletion_confirmed':False,'global_anti_rollback_authenticated':False,
+            'authenticated_utc':False,'independent_witnesses':0,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'PARENT_RETENTION_PRESSURE_HOLD'}
+          pathlib.Path('qualification-artifact/199-summary.json').write_text(
+            json.dumps(body,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload sanitized exact parent-retention evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-199-immutable-parent-retention
+          path: |
+            qualification-artifact/199-parent.json
+            qualification-artifact/199-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail on source, historical, or inherited parent failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          RETENTION: ${{ steps.retention.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN RETENTION; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned parent observed. No external custody or operational recovery."
