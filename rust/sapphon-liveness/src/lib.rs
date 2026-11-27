@@ -137,6 +137,8 @@ pub mod retention199;
 pub mod freeze200;
 #[cfg(target_os = "linux")]
 pub mod runner201;
+#[cfg(target_os = "linux")]
+pub mod replay202;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
