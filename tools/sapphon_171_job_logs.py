@@ -121,6 +121,7 @@ def main():
       "sapphon-183-contradictions.yml":("9745ac2fb25233db2cdd150421b8b5f95ac3e9d7","contradiction-adjudication"),
       "sapphon-184-freeze.yml":("edb582df9db3873d2fe308d219ed30b412d1b06d","final-freeze"),
       "sapphon-191-challenges.yml":("5e637d47cca0dcdd92f653e3b0b4e7000535997b","challenge-preflight"),
+      "sapphon-192-freeze.yml":("9c3734c78bab40690ca1f5f9b65e29362193a1bf","final-source-freeze"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
@@ -179,7 +180,6 @@ def main():
     dest.write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
     print("SAPPHON-171",out["status"],"observed failed jobs:",
            len((out.get("observed") or {}).get("failures",[])))
-    if out["status"] in ("READBACK_UNAVAILABLE","NO_MATCHING_RUN_IN_EXHAUSTED_PAGES","RUN_SEARCH_INCOMPLETE_PAGE_CAP","MALFORMED_MATCHING_RUN","JOB_PAGE_CAP_REACHED","MALFORMED_JOB_PAGE","INVALID_RUN_IDENTITY","NO_MATCHING_RUN_IN_FIXTURE","REQUIRED_JOB_MISSING"):
-        raise SystemExit(1)
+    # An exact-run readback may be available but failing or incomplete; never exit green.\n    if out["status"] != "EXACT_RUN_OBSERVED" or not (out.get("observed") or {}).get("source_owned_success_observed",False):\n        raise SystemExit(1)
 
 if __name__=="__main__":main()
