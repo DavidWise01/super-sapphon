@@ -1,0 +1,6 @@
+{
+  "schema": "sapphon-190-key-registry-v1",
+  "out_of_band_authenticated": false,
+  "keys": [],
+  "authority_source": "none"
+}
