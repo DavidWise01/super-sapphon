@@ -1,0 +1,129 @@
+name: SAPPHON-187 Cross-Attempt Artifact Retention and Equivocation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_187_*.py'
+      - 'tools/test_sapphon_187_*.py'
+      - '.github/workflows/sapphon-187-retention.yml'
+      - 'docs/sapphon/phase-xviii/187/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  retention-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python append-only and source-acquisition controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_187_ledger.py
+          python3 tools/test_sapphon_187_acquire.py
+          python3 tools/test_sapphon_186_attempts.py
+          python3 tools/test_sapphon_185_pagination.py
+      - name: Compile Rust and run source-owned regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify inherited 188 immutable files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Observe original SAPPHON-186 attempt ZIP or retention state
+        id: acquisition
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_187_acquire.py \
+            --ledger qualification-artifact/187-evidence-ledger.jsonl \
+            --out qualification-artifact/187-observation.json
+      - name: Append only an actually emitted bounded observation
+        id: ledger
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          if [[ -f qualification-artifact/187-pending-event.json ]]; then
+            python3 tools/sapphon_187_ledger.py \
+              --ledger qualification-artifact/187-evidence-ledger.jsonl \
+              --observation qualification-artifact/187-pending-event.json \
+              --out qualification-artifact/187-adjudication.json
+          else
+            python3 - <<'PY'
+          import json,pathlib
+          p=pathlib.Path('qualification-artifact/187-adjudication.json')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps({
+            'schema':'sapphon-187-unavailable-v1',
+            'status':'NO_LEDGER_EVENT_OBSERVED',
+            'source_owned_chain_consistent':False,
+            'external_custody_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CROSS_ATTEMPT_RETENTION_HOLD'},sort_keys=True,indent=2)+'\n')
+          PY
+          fi
+      - name: Preserve source checks and provenance qualification separately
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUISITION: ${{ steps.acquisition.outcome }}
+          LEDGER: ${{ steps.ledger.outcome }}
+        run: |
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('PYTHON','RUST','FROZEN','ACQUISITION','LEDGER')
+          outcomes={n:os.environ[n] for n in names}
+          record={'schema':'sapphon-187-owned-run-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':outcomes,
+            'source_tests_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'cross_run_continuity_verified':False,
+            'api_timestamp_authenticated':False,
+            'independent_custody_authenticated':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CROSS_ATTEMPT_RETENTION_HOLD'}
+          p=pathlib.Path('qualification-artifact/187-summary.json')
+          p.parent.mkdir(parents=True,exist_ok=True)
+          p.write_text(json.dumps(record,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload sanitized observation and local append-only ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-187-retention-evidence
+          path: |
+            qualification-artifact/187-observation.json
+            qualification-artifact/187-adjudication.json
+            qualification-artifact/187-evidence-ledger.jsonl
+            qualification-artifact/187-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail if current executable diagnostics or frozen hashes fail
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for n in PYTHON RUST FROZEN; do
+            if [[ "${!n}" != success ]]; then
+              echo "::error::$n = ${!n}; qualification HOLD"
+              exit 1
+            fi
+          done
+          echo "Source-owned results checked. Cross-run custody and recovery remain HOLD."
