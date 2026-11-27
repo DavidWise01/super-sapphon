@@ -10,7 +10,6 @@ spec=importlib.util.spec_from_file_location("attempt186",HERE/"sapphon_186_attem
 a186=importlib.util.module_from_spec(spec);spec.loader.exec_module(a186)
 spec2=importlib.util.spec_from_file_location("ledger187",HERE/"sapphon_187_ledger.py")
 l187=importlib.util.module_from_spec(spec2);spec2.loader.exec_module(l187)
-REPO=l187.SOURCE
 def empty(run_id,attempt,state,artifact_id=None):
  return {"source_sha":l187.SOURCE,"workflow":l187.WORKFLOW,
  "run_id":run_id,"attempt":attempt,"state":state,"artifact_id":artifact_id,
@@ -90,7 +89,6 @@ def main():
  if event is not None:
   src=out.with_name("187-pending-event.json")
   src.write_text(json.dumps(event,sort_keys=True,indent=2)+"\n")
-  from sapphon_187_ledger import main as _unused
   # The ledger CLI is invoked separately in CI, after acquisition.
  print(result["status"])
  if result["status"]!="SOURCE_OWNED_BYTES_OBSERVED":sys.exit(1)
