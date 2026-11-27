@@ -95,6 +95,8 @@ pub mod isolation178;
 pub mod replay179;
 #[cfg(target_os = "linux")]
 pub mod binding180;
+#[cfg(target_os = "linux")]
+pub mod archive181;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
