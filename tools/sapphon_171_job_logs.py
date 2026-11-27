@@ -98,6 +98,7 @@ def main():
       "sapphon-178-isolation.yml":("71931a8602229cecad921297aabe633e810fb211","failure-isolation"),
       "sapphon-179-replay.yml":("d07203a254678fdf7df05a75c1d144c7a8337f87","replay-diagnostics"),
       "sapphon-182-crossfile.yml":("bcc82842d0ebc090db6fb3b32c978a75db3cf9fd","crossfile-adjudication"),
+      "sapphon-183-contradictions.yml":("9745ac2fb25233db2cdd150421b8b5f95ac3e9d7","contradiction-adjudication"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
