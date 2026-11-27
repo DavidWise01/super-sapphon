@@ -133,6 +133,8 @@ pub mod monotonic197;
 pub mod import198;
 #[cfg(target_os = "linux")]
 pub mod retention199;
+#[cfg(target_os = "linux")]
+pub mod freeze200;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
