@@ -105,6 +105,8 @@ pub mod contradictions183;
 pub mod freeze184;
 #[cfg(target_os = "linux")]
 pub mod observed185;
+#[cfg(target_os = "linux")]
+pub mod attempts186;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
