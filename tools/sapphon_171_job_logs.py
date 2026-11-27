@@ -25,6 +25,7 @@ def choose(rows,sha):
     if not HEX40.fullmatch(sha):raise ValueError("invalid pinned commit")
     selected=[r for r in rows if r.get("head_sha")==sha and isinstance(r.get("id"),int)
               and isinstance(r.get("run_attempt"),int) and not isinstance(r.get("run_attempt"),bool)
+              and not isinstance(r.get("id"),bool)
               and r["run_attempt"]>0 and r["id"]>0]
     selected.sort(key=lambda r:(r["id"],r["run_attempt"]),reverse=True)
     return selected[0] if selected else None
@@ -73,10 +74,29 @@ def paged_runs(workflow,sha,max_pages=10,api_call=None):
         rows=fetch(f"repos/{REPO}/actions/workflows/{workflow}/runs?per_page=100&page={page}").get("workflow_runs",[])
         matches=[x for x in rows if x.get("head_sha")==sha]
         if matches:
-            return choose(matches,sha),"EXACT_RUN_OBSERVED",page
+            selected=choose(matches,sha)
+            if selected is None:
+                return None,"MALFORMED_MATCHING_RUN",page
+            return selected,"EXACT_RUN_OBSERVED",page
         if len(rows)<100:
             return None,"NO_MATCHING_RUN_IN_EXHAUSTED_PAGES",page
     return None,"RUN_SEARCH_INCOMPLETE_PAGE_CAP",max_pages
+
+def paged_jobs(run_id,attempt,max_pages=10,api_call=None):
+    """Collect all jobs, or fail closed if pagination cannot finish."""
+    if type(run_id) is not int or type(attempt) is not int or run_id<=0 or attempt<=0:
+        return [],"INVALID_RUN_IDENTITY",0
+    fetch=api_call or api
+    collected=[]
+    for page in range(1,max_pages+1):
+        payload=fetch(f"repos/{REPO}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100&page={page}")
+        rows=payload.get("jobs")
+        if not isinstance(rows,list):
+            return [],"MALFORMED_JOB_PAGE",page
+        collected.extend(rows)
+        if len(rows)<100:
+            return collected,"JOB_PAGES_EXHAUSTED",page
+    return [],"JOB_PAGE_CAP_REACHED",max_pages
 
 def main():
     p=argparse.ArgumentParser()
@@ -99,6 +119,7 @@ def main():
       "sapphon-179-replay.yml":("d07203a254678fdf7df05a75c1d144c7a8337f87","replay-diagnostics"),
       "sapphon-182-crossfile.yml":("bcc82842d0ebc090db6fb3b32c978a75db3cf9fd","crossfile-adjudication"),
       "sapphon-183-contradictions.yml":("9745ac2fb25233db2cdd150421b8b5f95ac3e9d7","contradiction-adjudication"),
+      "sapphon-184-freeze.yml":("edb582df9db3873d2fe308d219ed30b412d1b06d","final-freeze"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
@@ -125,9 +146,17 @@ def main():
         else:
             if a.fixture:jobs=fixture["jobs"]
             else:
-                jobs=api(f"repos/{REPO}/actions/runs/{target['id']}/attempts/{target['run_attempt']}/jobs?per_page=100").get("jobs",[])
+                jobs,job_search_state,job_pages=paged_jobs(target["id"],target["run_attempt"])
+                out["job_pages_scanned"]=job_pages
+                out["job_search_state"]=job_search_state
+                if job_search_state!="JOB_PAGES_EXHAUSTED":
+                    out["status"]=job_search_state
+                    jobs=[]
             out["observed"]=classify(target,jobs,a.required_job)
             out["status"]=out["observed"]["status"]
+            if not a.fixture and out.get("job_search_state")!="JOB_PAGES_EXHAUSTED":
+                out["observed"]["source_owned_success_observed"]=False
+                out["status"]=out["job_search_state"]
             if not a.fixture:
                 for failure in out["observed"]["failures"][:6]:
                     jid=failure["job_id"]
@@ -149,7 +178,7 @@ def main():
     dest.write_text(json.dumps(out,indent=2,sort_keys=True)+"\n")
     print("SAPPHON-171",out["status"],"observed failed jobs:",
            len((out.get("observed") or {}).get("failures",[])))
-    if out["status"] in ("READBACK_UNAVAILABLE","NO_MATCHING_RUN_IN_EXHAUSTED_PAGES","RUN_SEARCH_INCOMPLETE_PAGE_CAP","NO_MATCHING_RUN_IN_FIXTURE","REQUIRED_JOB_MISSING"):
+    if out["status"] in ("READBACK_UNAVAILABLE","NO_MATCHING_RUN_IN_EXHAUSTED_PAGES","RUN_SEARCH_INCOMPLETE_PAGE_CAP","MALFORMED_MATCHING_RUN","JOB_PAGE_CAP_REACHED","MALFORMED_JOB_PAGE","INVALID_RUN_IDENTITY","NO_MATCHING_RUN_IN_FIXTURE","REQUIRED_JOB_MISSING"):
         raise SystemExit(1)
 
 if __name__=="__main__":main()
