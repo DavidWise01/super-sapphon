@@ -121,6 +121,8 @@ pub mod challenge191;
 pub mod freeze192;
 #[cfg(target_os = "linux")]
 pub mod triage193;
+#[cfg(target_os = "linux")]
+pub mod acquire194;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
