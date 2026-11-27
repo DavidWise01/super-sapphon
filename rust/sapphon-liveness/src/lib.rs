@@ -131,6 +131,8 @@ pub mod reacquire196;
 pub mod monotonic197;
 #[cfg(target_os = "linux")]
 pub mod import198;
+#[cfg(target_os = "linux")]
+pub mod retention199;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
