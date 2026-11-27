@@ -1,0 +1,128 @@
+name: SAPPHON-192 Phase XVIII Final Challenge Custody Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_192_*.py'
+      - 'tools/test_sapphon_192_freeze.py'
+      - '.github/workflows/sapphon-192-freeze.yml'
+      - 'docs/sapphon/phase-xviii/192/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  final-source-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run eight-bound Python source regression inventory
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_192_freeze.py
+          python3 tools/test_sapphon_191_challenges.py
+          python3 tools/test_sapphon_190_enrollment.py
+          python3 tools/test_sapphon_189_forks.py
+          python3 tools/test_sapphon_188_import.py
+          python3 tools/test_sapphon_187_ledger.py
+          python3 tools/test_sapphon_186_attempts.py
+          python3 tools/test_sapphon_185_observed.py
+      - name: Compile inherited Rust and run exact Phase XVIII regressions
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify all 188 immutable historical files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Record exact owned predecessor state without promoting a missing run
+        id: predecessor
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_171_job_logs.py \
+            --sha 5e637d47cca0dcdd92f653e3b0b4e7000535997b \
+            --workflow sapphon-191-challenges.yml \
+            --required-job challenge-preflight \
+            --out qualification-artifact/192-predecessor.json
+      - name: Record independent external challenge state
+        id: challenge
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          printf '[]\n' > qualification-artifact/192-issued.json
+          printf '[]\n' > qualification-artifact/192-responses.json
+          python3 tools/sapphon_191_challenges.py \
+            --challenges qualification-artifact/192-issued.json \
+            --responses qualification-artifact/192-responses.json \
+            --out qualification-artifact/192-challenge.json
+      - name: Build canonical checked-out final source freeze
+        id: inventory
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PREDECESSOR: ${{ steps.predecessor.outcome }}
+          CHALLENGE: ${{ steps.challenge.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          states={key:"not_observed" for key in (
+            "PYTHON","RUST","FROZEN","PREDECESSOR","CHALLENGE","PAGES","NPM_LOCK")}
+          for k in ("PYTHON","RUST","FROZEN","PREDECESSOR","CHALLENGE"):
+            val=os.environ[k]
+            states[k]=val if val in ("success","failure","skipped","cancelled","timed_out") else "not_observed"
+          body={"schema":"sapphon-192-current-run-v1",
+            "commit":os.environ["GITHUB_SHA"],"run_id":os.environ["GITHUB_RUN_ID"],
+            "attempt":os.environ["GITHUB_RUN_ATTEMPT"],"outcomes":states,
+            "verified_independent_witnesses":0,"recovery_authorized":False,
+            "decision":"PHASE_XVIII_FINAL_SOURCE_FREEZE_HOLD"}
+          pathlib.Path("qualification-artifact/192-outcomes.json").write_text(
+            json.dumps(body,indent=2,sort_keys=True)+"\n")
+          PY
+          python3 tools/sapphon_192_freeze.py \
+            --head '${{ github.sha }}' \
+            --outcomes qualification-artifact/192-outcomes.json \
+            --out qualification-artifact/192-freeze.json
+      - name: Upload source owned sanitized freeze records
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-192-final-phase-xviii-freeze
+          path: |
+            qualification-artifact/192-outcomes.json
+            qualification-artifact/192-freeze.json
+            qualification-artifact/192-predecessor.json
+            qualification-artifact/192-challenge.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail closed on source, Rust, frozen, or inventory failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          INVENTORY: ${{ steps.inventory.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN INVENTORY; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; Phase XVIII HOLD"
+              exit 1
+            fi
+          done
+          echo "Design freeze checked on source runner; external custody and recovery HOLD."
