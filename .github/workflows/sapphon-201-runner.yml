@@ -1,0 +1,99 @@
+name: SAPPHON-201 Phase XX Hosted Runner Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_201_*.py'
+      - 'tools/test_sapphon_201_*.py'
+      - '.github/workflows/sapphon-201-runner.yml'
+      - 'docs/sapphon/phase-xx/201/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  observed-hosted-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute 201 exact-run and Phase XIX source regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_201_runner.py
+          python3 tools/test_sapphon_200_freeze.py
+          python3 tools/test_sapphon_199_retention.py
+      - name: Compile source and run Rust qualifier regressions
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Recheck historical 188 protected files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Fetch exact SAPPHON-200 workflow, original job logs, and ZIP
+        id: acquisition
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_201_runner.py --out qualification-artifact/201-runner.json
+      - name: Preserve observed and unobserved source runner outcomes separately
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUISITION: ${{ steps.acquisition.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          statuses={key:os.environ[key] for key in ('PYTHON','RUST','FROZEN','ACQUISITION')}
+          p=pathlib.Path('qualification-artifact/201-runner.json')
+          info=json.loads(p.read_text()) if p.is_file() else {}
+          summary={'schema':'sapphon-201-source-owned-run-v1',
+            'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'steps':statuses,
+            'source_tests_pass':all(statuses[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'original_200_run_state':info.get('state','NOT_OBSERVED'),
+            'original_job_and_zip_bytes_observed':info.get('original_bytes_complete') is True,
+            'original_200_failed_steps':info.get('observed_failed_steps',[]),
+            'source_owned_200_runner_pass':info.get('source_owned_runner_pass') is True,
+            'independent_witnesses':0,'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,'recovery_authorized':False,
+            'lock_cleared':False,'decision':'PHASE_XX_HOSTED_QUALIFICATION_HOLD'}
+          pathlib.Path('qualification-artifact/201-summary.json').write_text(
+            json.dumps(summary,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload sanitized original-byte hash and source execution findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-201-observed-hosted-qualification
+          path: |
+            qualification-artifact/201-runner.json
+            qualification-artifact/201-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail on current source regression errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; HOLD"
+              exit 1
+            fi
+          done
+          echo "Current source checks passed if observed; original 200 execution is a separate evidence gate."
