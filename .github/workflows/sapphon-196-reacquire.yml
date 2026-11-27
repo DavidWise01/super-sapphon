@@ -1,0 +1,101 @@
+name: SAPPHON-196 Original Byte Reacquisition and Readback Equivocation
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_196_*.py'
+      - 'tools/test_sapphon_196_*.py'
+      - '.github/workflows/sapphon-196-reacquire.yml'
+      - 'docs/sapphon/phase-xix/196/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  source-owned-original-reacquisition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test original-byte readback and inherited mismatch regression gates
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_196_reacquire.py
+          python3 tools/test_sapphon_195_crossverify.py
+          python3 tools/test_sapphon_194_acquire.py
+      - name: Compile and test Rust fresh-byte parity source gate
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Preserve all inherited 188 historical frozen files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Reacquire original SAPPHON-193 log and ZIP using SAPPHON-195 digest report
+        id: reacquire
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_196_reacquire.py \
+            --out qualification-artifact/196-reacquisition.json
+      - name: Distinguish actual test execution, fresh byte match and custody
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          REACQUIRE: ${{ steps.reacquire.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','REACQUIRE')}
+          p=pathlib.Path('qualification-artifact/196-reacquisition.json')
+          result=json.loads(p.read_text()) if p.is_file() else {}
+          report={'schema':'sapphon-196-owned-run-results-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,'reacquisition_state':result.get('state','NOT_OBSERVED'),
+            'source_owned_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'original_bytes_reacquired':result.get('original_bytes_reacquired') is True,
+            'github_owned_hash_match':result.get('state')=='GITHUB_OWNED_HASH_MATCH',
+            'independent_witnesses':0,'external_custody_authenticated':False,
+            'authenticated_utc':False,'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'GITHUB_OWNED_READBACK_HOLD'}
+          pathlib.Path('qualification-artifact/196-summary.json').write_text(
+            json.dumps(report,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload only sanitized hashes and run identity, not raw secret-bearing logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-196-original-byte-comparison
+          path: |
+            qualification-artifact/196-reacquisition.json
+            qualification-artifact/196-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail current source checks, preserve missing predecessor as evidence state
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; source HOLD"
+              exit 1
+            fi
+          done
+          echo "Current source diagnostics evaluated; original-byte readback and recovery remain separately gated."
