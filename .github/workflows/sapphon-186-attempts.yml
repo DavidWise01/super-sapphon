@@ -1,0 +1,104 @@
+name: SAPPHON-186 Exhaustive Attempt and Artifact Coverage
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_186_*.py'
+      - 'tools/test_sapphon_186_attempts.py'
+      - '.github/workflows/sapphon-186-attempts.yml'
+      - 'docs/sapphon/phase-xviii/186/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  attempt-artifact-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute exhaustive pagination and attempt negative tests
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_186_attempts.py
+          python3 tools/test_sapphon_185_pagination.py
+          python3 tools/test_sapphon_185_observed.py
+          python3 tools/test_sapphon_184_freeze.py
+      - name: Rust all-target check and regression suites
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-recovery/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-contention/Cargo.toml --all-targets -- --test-threads=1
+          cargo test --manifest-path rust/sapphon-journal/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-audit/Cargo.toml --all-targets
+      - name: Check protected 188 historical source digests
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Seek exact SAPPHON-185 run jobs all pages and original ZIP
+        id: acquisition
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_186_attempts.py --out qualification-artifact/186-attempts.json
+      - name: Preserve actual observed steps and external authority HOLD
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ACQUISITION: ${{ steps.acquisition.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('PYTHON','RUST','FROZEN','ACQUISITION')
+          outcomes={key:os.environ[key] for key in keys}
+          doc={'schema':'sapphon-186-source-diagnostics-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':outcomes,
+            'source_owned_tests_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'external_custody_authenticated':False,
+            'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'npm_registry_integrity_qualified':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'EXHAUSTIVE_ATTEMPT_ARTIFACT_HOLD'}
+          pathlib.Path('qualification-artifact/186-summary.json').write_text(
+            json.dumps(doc,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload metadata only not raw ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-186-exhaustive-attempt-findings
+          path: |
+            qualification-artifact/186-attempts.json
+            qualification-artifact/186-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail on current source-test or historic-frozen errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; source execution HOLD"
+              exit 1
+            fi
+          done
+          echo "GitHub-owned source checks are separate from original ZIP and external custody."
