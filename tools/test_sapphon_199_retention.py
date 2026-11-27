@@ -65,8 +65,15 @@ class Tests(unittest.TestCase):
   v=list(base(True));v[1]=dict(v[1],inherited_forks=[])
   self.assertEqual(m.inspect(archive(v),run(),artifact())["state"],"PARENT_TIP_OR_FORK_EQUIVOCATION")
  def test_tamper_chain(self):
-  v=list(base());v[0][0]["sha256"]="f"*64
-  self.assertEqual(m.inspect(archive(v),run(),artifact())["state"],"CHAIN_HASH_INVALID")
+  data=archive(base());buffer=io.BytesIO()
+  with zipfile.ZipFile(io.BytesIO(data)) as original:
+   entries={name:original.read(name) for name in original.namelist()}
+  chain=[json.loads(line) for line in entries["198-ledger.jsonl"].splitlines()]
+  chain[0]["sha256"]="f"*64
+  entries["198-ledger.jsonl"]=b"".join(l.canonical(x)+b"\\n" for x in chain)
+  with zipfile.ZipFile(buffer,"w") as out:
+   for name,body in entries.items():out.writestr(name,body)
+  self.assertEqual(m.inspect(buffer.getvalue(),run(),artifact())["state"],"CHAIN_HASH_INVALID")
  def test_duplicate_zip_entry_rejected(self):
   b=io.BytesIO()
   with zipfile.ZipFile(b,"w") as z:
@@ -82,7 +89,7 @@ class Tests(unittest.TestCase):
    z.writestr("extra.sh","contents")
   self.assertEqual(m.inspect(b.getvalue(),run(),artifact())["state"],"ZIP_MEMBER_CONFLICT")
  def test_nonappend_record_denied(self):
-  v=list(base());v[1]=dict(v[1],predecessor_entries=0)
+  v=list(base());v[1]=dict(v[1],predecessor_entries=len(v[0]))
   self.assertEqual(m.inspect(archive(v),run(),artifact())["state"],"PARENT_BOUNDARY_INVALID")
  def test_forged_recovery_in_summary(self):
   v=list(base());v[3]=dict(v[3],recovery_authorized=True)
