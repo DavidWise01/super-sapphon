@@ -1,0 +1,144 @@
+name: SAPPHON-200 Phase XIX Final Source and Retention Freeze
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_200_*.py'
+      - 'tools/test_sapphon_200_*.py'
+      - '.github/workflows/sapphon-200-freeze.yml'
+      - 'docs/sapphon/phase-xix/200/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  final-phase-xix-freeze:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all eight-bound Phase XIX Python negative controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_200_freeze.py
+          python3 tools/test_sapphon_199_retention.py
+          python3 tools/test_sapphon_198_import.py
+          python3 tools/test_sapphon_197_ledger.py
+          python3 tools/test_sapphon_196_reacquire.py
+          python3 tools/test_sapphon_195_crossverify.py
+          python3 tools/test_sapphon_194_acquire.py
+          python3 tools/test_sapphon_193_triage.py
+      - name: Compile all Rust modules and run regression tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify 188 protected historical files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Attempt genuine source-owned SAPPHON-199 parent retention readback
+        id: retention
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_199_retention.py --out qualification-artifact/200-retention.json
+      - name: Build exact eight-source snapshot and observed outcome inventory
+        id: freeze
+        if: always()
+        continue-on-error: true
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          RETENTION: ${{ steps.retention.outcome }}
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          outcomes={k:'not_observed' for k in ('PYTHON','RUST','FROZEN','RETENTION','PAGES','BROWSER')}
+          for key in ('PYTHON','RUST','FROZEN','RETENTION'):
+            value=os.environ[key]
+            outcomes[key]=value if value in ('success','failure','skipped','cancelled','timed_out') else 'not_observed'
+          pathlib.Path('qualification-artifact/200-outcomes.json').write_text(
+            json.dumps({'schema':'sapphon-200-outcomes-v1','outcomes':outcomes},
+            indent=2,sort_keys=True)+'\n')
+          p=pathlib.Path('qualification-artifact/200-retention.json')
+          if not p.exists():
+            p.write_text(json.dumps({
+              'schema':'sapphon-199-retention-v1','state':'NOT_OBSERVED',
+              'original_parent_verified':False,'deletion_confirmed':False,
+              'global_anti_rollback_authenticated':False,
+              'independent_witnesses':0,'recovery_authorized':False,
+              'lock_cleared':False},sort_keys=True,indent=2)+'\n')
+          PY
+          python3 tools/sapphon_200_freeze.py \
+            --head '${{ github.sha }}' \
+            --retention qualification-artifact/200-retention.json \
+            --outcomes qualification-artifact/200-outcomes.json \
+            --out qualification-artifact/200-freeze.json
+      - name: Record final current-run status without external promotion
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          RETENTION: ${{ steps.retention.outcome }}
+          FREEZE: ${{ steps.freeze.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('PYTHON','RUST','FROZEN','RETENTION','FREEZE')
+          status={k:os.environ[k] for k in keys}
+          p=pathlib.Path('qualification-artifact/200-freeze.json')
+          freeze=json.loads(p.read_text()) if p.is_file() else {}
+          body={'schema':'sapphon-200-source-owned-run-v1',
+            'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':status,
+            'source_design_complete':freeze.get('source_design_complete') is True,
+            'source_tests_pass':all(status[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'inherited_retention_state':freeze.get('inherited_retention_state','NOT_OBSERVED'),
+            'external_custody_authenticated':False,'independent_witnesses':0,
+            'authenticated_utc':False,'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'PHASE_XIX_FINAL_SOURCE_FREEZE_HOLD'}
+          pathlib.Path('qualification-artifact/200-summary.json').write_text(
+            json.dumps(body,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Publish sanitized source-owned Phase XIX archive
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-200-phase-xix-final-freeze
+          path: |
+            qualification-artifact/200-retention.json
+            qualification-artifact/200-outcomes.json
+            qualification-artifact/200-freeze.json
+            qualification-artifact/200-summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail on source regressions or missing final inventory
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          FREEZE: ${{ steps.freeze.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN FREEZE; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key = ${!key}; HOLD"
+              exit 1
+            fi
+          done
+          echo "Phase XIX source-design inventory completed; external custody and recovery HOLD."
