@@ -1,0 +1,113 @@
+name: SAPPHON-195 Original Log Artifact Cross Verification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_195_*.py'
+      - 'tools/test_sapphon_195_*.py'
+      - '.github/workflows/sapphon-195-crossverify.yml'
+      - 'docs/sapphon/phase-xix/195/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-provenance-and-replay-plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run source-owned log ZIP and safe replay negative controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_195_crossverify.py
+          python3 tools/test_sapphon_194_acquire.py
+          python3 tools/test_sapphon_193_triage.py
+      - name: Compile Rust and test inherited custody source gates
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify all protected 188 frozen history files
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Read exact predecessor 194 artifact containing source-owned 193 report
+        id: import
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_195_import.py \
+            --out qualification-artifact/195-import.json \
+            --acquisition qualification-artifact/195-194-acquisition.json \
+            --summary qualification-artifact/195-194-summary.json
+      - name: Compare original-byte report claims and derive reviewed replay plan
+        id: compare
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_195_crossverify.py \
+            --acquisition qualification-artifact/195-194-acquisition.json \
+            --summary qualification-artifact/195-194-summary.json \
+            --out qualification-artifact/195-crossverify.json
+      - name: Write actual outcomes with execution and authority separate
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          IMPORT: ${{ steps.import.outcome }}
+          COMPARE: ${{ steps.compare.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','IMPORT','COMPARE')}
+          p=pathlib.Path('qualification-artifact/195-crossverify.json')
+          verified=json.loads(p.read_text()) if p.is_file() else {}
+          body={'schema':'sapphon-195-source-owned-v1','commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'steps':steps,
+            'source_owned_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'replay_eligible_for_review':verified.get('replay_eligible_for_review') is True,
+            'replay_executed':False,
+            'original_193_bytes_reread':False,'independent_witnesses':0,
+            'external_custody_authenticated':False,'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'LOG_ARTIFACT_CROSS_VERIFICATION_HOLD'}
+          pathlib.Path('qualification-artifact/195-summary.json').write_text(
+            json.dumps(body,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload sanitized provenance findings and plan only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-195-log-artifact-parity
+          path: |
+            qualification-artifact/195-import.json
+            qualification-artifact/195-crossverify.json
+            qualification-artifact/195-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail on actual current source or historical verification errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key failed; source gate HOLD"
+              exit 1
+            fi
+          done
+          echo "No evidence-derived commands executed; physical recovery stays HOLD."
