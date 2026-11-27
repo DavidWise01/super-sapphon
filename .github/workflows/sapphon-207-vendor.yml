@@ -152,6 +152,7 @@ jobs:
             qualification-artifact/207-vendor.json
             qualification-artifact/207-image-report.json
             qualification-artifact/207-image.sha256
+            qualification-artifact/207-image.tar
             qualification-artifact/207-summary.json
           retention-days: 30
           if-no-files-found: error
