@@ -1,0 +1,113 @@
+name: SAPPHON-204 Offline Pinned Rust Replay Qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_204_*.py'
+      - 'tools/test_sapphon_204_*.py'
+      - '.github/workflows/sapphon-204-offline-rust.yml'
+      - 'docs/sapphon/phase-xx/204/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  offline-rust-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout exact historic Rust source
+        uses: actions/checkout@v4
+        with:
+          repository: DavidWise01/super-sapphon
+          ref: b5ddf7f7d7d51a282c0109276dc37310f56eb240
+          path: qualification-input
+          persist-credentials: false
+      - name: Execute offline-image and missing-lock safeguards
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_204_offline_rust.py
+          python3 tools/test_sapphon_203_isolated_replay.py
+      - name: Compile current Rust source and run inherited gates
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify historical frozen source read only
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Verify pinned historic checkout
+        id: ancestry
+        continue-on-error: true
+        run: test "$(git -C qualification-input rev-parse HEAD)" = "b5ddf7f7d7d51a282c0109276dc37310f56eb240"
+      - name: Record actual Cargo.lock and pinned image prerequisites
+        id: preflight
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_204_offline_rust.py \
+            --checkout qualification-input \
+            --out qualification-artifact/204-offline-rust.json
+      - name: Summarize source verification separately from offline replay
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ANCESTRY: ${{ steps.ancestry.outcome }}
+          PREFLIGHT: ${{ steps.preflight.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          steps={k:os.environ[k] for k in ('PYTHON','RUST','FROZEN','ANCESTRY','PREFLIGHT')}
+          p=pathlib.Path('qualification-artifact/204-offline-rust.json')
+          d=json.loads(p.read_text()) if p.exists() else {}
+          report={'schema':'sapphon-204-owned-run-v1','commit':os.environ['GITHUB_SHA'],
+           'run_id':os.environ['GITHUB_RUN_ID'],'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+           'steps':steps,'source_tests_pass':all(steps[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+           'original_checkout_verified':steps['ANCESTRY']=='success',
+           'offline_lock_state':d.get('lock_state','NOT_OBSERVED'),
+           'actual_rust_replay_executed':False,'rust_failure_reproduced':False,
+           'original_201_log_and_zip_observed':False,
+           'external_custody_authenticated':False,'independent_witnesses':0,
+           'authenticated_utc':False,'global_anti_rollback_authenticated':False,
+           'recovery_authorized':False,'lock_cleared':False,
+           'decision':'PHASE_XX_OFFLINE_RUST_HOLD'}
+          pathlib.Path('qualification-artifact/204-summary.json').write_text(
+           json.dumps(report,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload only status and source hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-204-offline-rust-prerequisites
+          path: |
+            qualification-artifact/204-offline-rust.json
+            qualification-artifact/204-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail current source test regressions, leave replay on HOLD
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ANCESTRY: ${{ steps.ancestry.outcome }}
+        run: |
+          for key in PYTHON RUST FROZEN ANCESTRY; do
+            if [[ "${!key}" != success ]]; then
+              echo "::error::$key failed; HOLD"
+              exit 1
+            fi
+          done
+          echo "Offline Rust replay not attempted; actual lockfile and immutable image still required."
