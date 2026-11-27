@@ -80,7 +80,7 @@ def append(previous,event):
  return previous+[{"envelope":env,"sha256":sha(canonical(env))}]
 def from_reacquisition(result):
  if type(result) is not dict or result.get("schema")!="sapphon-196-original-byte-reacquisition-v1":
-  return {"state":"READBACK_UNAVAILABLE"}
+  result={"state":"READBACK_UNAVAILABLE"}
  state=result.get("state","READBACK_UNAVAILABLE")
  if state not in STATES:state="NOT_OBSERVED"
  observed=state in ("GITHUB_OWNED_HASH_MATCH","GITHUB_OWNED_READBACK_EQUIVOCATION")
