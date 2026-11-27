@@ -1,0 +1,105 @@
+name: SAPPHON-188 Cross-Run Ledger Import and Ancestry Continuity
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_188_*.py'
+      - 'tools/test_sapphon_188_import.py'
+      - '.github/workflows/sapphon-188-import.yml'
+      - 'docs/sapphon/phase-xviii/188/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  imported-ledger-diagnostics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python import and inherited source regressions
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_188_import.py
+          python3 tools/test_sapphon_187_ledger.py
+          python3 tools/test_sapphon_187_acquire.py
+          python3 tools/test_sapphon_186_attempts.py
+      - name: Compile and test Rust continuity and inherited source modules
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Preserve inherited 188 historical source hashes
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Acquire and validate exact prior SAPPHON-187 ledger artifact
+        id: importer
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_188_import.py \
+            --out qualification-artifact/188-import.json \
+            --transition qualification-artifact/188-transition.json
+      - name: Record source checks separately from custody and genuine continuity
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          IMPORTER: ${{ steps.importer.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          keys=('PYTHON','RUST','FROZEN','IMPORTER')
+          results={k:os.environ[k] for k in keys}
+          imported=pathlib.Path('qualification-artifact/188-import.json')
+          obj=json.loads(imported.read_text()) if imported.exists() else {}
+          summary={'schema':'sapphon-188-owned-outcomes-v1',
+            'commit':os.environ['GITHUB_SHA'],
+            'run_id':os.environ['GITHUB_RUN_ID'],
+            'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+            'outcomes':results,'import_status':obj.get('status','NOT_OBSERVED'),
+            'source_owned_checks_pass':all(results[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+            'cross_run_chain_import_observed':obj.get('cross_run_source_continuity_observed') is True,
+            'external_custody_authenticated':False,
+            'authenticated_utc':False,
+            'global_anti_rollback_authenticated':False,
+            'recovery_authorized':False,'lock_cleared':False,
+            'decision':'CROSS_RUN_IMPORT_HOLD'}
+          pathlib.Path('qualification-artifact/188-summary.json').write_text(
+            json.dumps(summary,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload only sanitized owned-source evidence, never original ZIP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-188-ancestry-continuity
+          path: |
+            qualification-artifact/188-import.json
+            qualification-artifact/188-transition.json
+            qualification-artifact/188-summary.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail on actual Python Rust or immutable history errors
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; source verification HOLD"
+              exit 1
+            fi
+          done
+          echo "Owned source diagnostics evaluated. Original ledger import and recovery remain separate HOLD gates."
