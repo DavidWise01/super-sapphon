@@ -125,6 +125,8 @@ pub mod triage193;
 pub mod acquire194;
 #[cfg(target_os = "linux")]
 pub mod crossverify195;
+#[cfg(target_os = "linux")]
+pub mod reacquire196;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
