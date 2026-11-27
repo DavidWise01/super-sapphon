@@ -1,0 +1,105 @@
+name: SAPPHON-190 Independent Custody Receipt Enrollment Preflight
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_190_*.py'
+      - 'tools/test_sapphon_190_*.py'
+      - '.github/workflows/sapphon-190-custody.yml'
+      - 'docs/sapphon/phase-xviii/190/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  custody-enrollment-preflight:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Execute Python custody ancestry and replay controls
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_190_enrollment.py
+          python3 tools/test_sapphon_189_forks.py
+          python3 tools/test_sapphon_189_acquire.py
+      - name: Verify real Ed25519 receipt signatures in Rust source regression tests
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify the inherited 188 historical file freeze
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Enforce zero-trust initial enrollment state
+        id: enrollment
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p qualification-artifact
+          printf '[]\n' > qualification-artifact/190-receipts.json
+          python3 tools/sapphon_190_enrollment.py \
+            --receipts qualification-artifact/190-receipts.json \
+            --registry docs/sapphon/phase-xviii/190/key-registry.json \
+            --out qualification-artifact/190-preflight.json
+      - name: Record source tests independently of external custody
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ENROLLMENT: ${{ steps.enrollment.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import os,json,pathlib
+          keys=('PYTHON','RUST','FROZEN','ENROLLMENT')
+          outcomes={k:os.environ[k] for k in keys}
+          body={'schema':'sapphon-190-source-outcomes-v1',
+           'commit':os.environ['GITHUB_SHA'],
+           'run_id':os.environ['GITHUB_RUN_ID'],
+           'attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+           'outcomes':outcomes,
+           'source_tests_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+           'real_external_receipts_observed':False,
+           'out_of_band_key_enrollment_verified':False,
+           'independent_witnesses':0,
+           'independent_custody_authenticated':False,
+           'authenticated_utc':False,
+           'global_anti_rollback_authenticated':False,
+           'recovery_authorized':False,'lock_cleared':False,
+           'decision':'INDEPENDENT_CUSTODY_ENROLLMENT_HOLD'}
+          pathlib.Path('qualification-artifact/190-summary.json').write_text(
+            json.dumps(body,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Upload only sanitized source results, never private keys
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-190-custody-enrollment-preflight
+          path: |
+            qualification-artifact/190-preflight.json
+            qualification-artifact/190-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail on actual source or historical verification failures
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          ENROLLMENT: ${{ steps.enrollment.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN ENROLLMENT; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; source verification HOLD"
+              exit 1
+            fi
+          done
+          echo "Source diagnostics checked. Zero independent witnesses, no physical authority."
