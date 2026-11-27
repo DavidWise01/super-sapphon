@@ -143,6 +143,8 @@ pub mod replay202;
 pub mod sandbox203;
 #[cfg(target_os = "linux")]
 pub mod offline204;
+#[cfg(target_os = "linux")]
+pub mod lock205;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Error(pub &'static str);
 impl std::fmt::Display for Error {
