@@ -1,0 +1,127 @@
+name: SAPPHON-198 Durable Cross Run Ledger Tip Import
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/sapphon-liveness/**'
+      - 'tools/sapphon_198_*.py'
+      - 'tools/test_sapphon_198_*.py'
+      - '.github/workflows/sapphon-198-import.yml'
+      - 'docs/sapphon/phase-xix/198/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  durable-ledger-parent:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test exact original ZIP and inherited ledger tip safety
+        id: python
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 tools/test_sapphon_198_import.py
+          python3 tools/test_sapphon_197_ledger.py
+          python3 tools/test_sapphon_196_reacquire.py
+      - name: Compile and test Rust source-owned custody ancestry
+        id: rust
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo check --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets
+          cargo test --manifest-path rust/sapphon-liveness/Cargo.toml --all-targets -- --test-threads=1
+      - name: Verify immutable historical 188 source entries
+        id: frozen
+        continue-on-error: true
+        run: python3 tools/sapphon_179_verify_frozen.py
+      - name: Import exact predecessor original SAPPHON-197 ledger ZIP
+        id: prior
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_198_import.py \
+            --out qualification-artifact/198-import.json \
+            --ledger-out qualification-artifact/198-prior-ledger.jsonl
+      - name: Get new source-owned original-byte observation
+        id: current
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_196_reacquire.py --out qualification-artifact/198-current.json
+      - name: Append only to a genuinely imported parent
+        id: extend
+        continue-on-error: true
+        run: |
+          mkdir -p qualification-artifact
+          python3 tools/sapphon_198_extend.py \
+            --prior-ledger qualification-artifact/198-prior-ledger.jsonl \
+            --import-report qualification-artifact/198-import.json \
+            --current qualification-artifact/198-current.json \
+            --ledger-out qualification-artifact/198-ledger.jsonl \
+            --report-out qualification-artifact/198-adjudication.json
+      - name: Record actual outcomes and source-only lineage limitations
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PRIOR: ${{ steps.prior.outcome }}
+          CURRENT: ${{ steps.current.outcome }}
+          EXTEND: ${{ steps.extend.outcome }}
+        run: |
+          mkdir -p qualification-artifact
+          python3 - <<'PY'
+          import json,os,pathlib
+          names=('PYTHON','RUST','FROZEN','PRIOR','CURRENT','EXTEND')
+          outcomes={k:os.environ[k] for k in names}
+          p=pathlib.Path('qualification-artifact/198-adjudication.json')
+          detail=json.loads(p.read_text()) if p.is_file() else {}
+          summary={'schema':'sapphon-198-source-owned-outcomes-v1',
+           'commit':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],
+           'attempt':os.environ['GITHUB_RUN_ATTEMPT'],'steps':outcomes,
+           'source_owned_tests_pass':all(outcomes[k]=='success' for k in ('PYTHON','RUST','FROZEN')),
+           'predecessor_197_original_import_observed':outcomes['PRIOR']=='success',
+           'cross_run_continuity_observed':detail.get('cross_run_chain_continuity_verified') is True,
+           'inherited_forks_preserved':len(detail.get('inherited_forks',[])),
+           'source_owned_evidence_only':True,'independent_witnesses':0,
+           'authenticated_utc':False,'global_anti_rollback_authenticated':False,
+           'recovery_authorized':False,'lock_cleared':False,
+           'decision':'CROSS_RUN_LEDGER_TIP_HOLD'}
+          pathlib.Path('qualification-artifact/198-summary.json').write_text(
+           json.dumps(summary,sort_keys=True,indent=2)+'\n')
+          PY
+      - name: Upload sanitized exact-source ledger and adjudication
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-198-cross-run-ledger-tip
+          path: |
+            qualification-artifact/198-import.json
+            qualification-artifact/198-adjudication.json
+            qualification-artifact/198-ledger.jsonl
+            qualification-artifact/198-summary.json
+          retention-days: 30
+          if-no-files-found: error
+      - name: Fail source checks and required genuine parent continuity
+        if: always()
+        env:
+          PYTHON: ${{ steps.python.outcome }}
+          RUST: ${{ steps.rust.outcome }}
+          FROZEN: ${{ steps.frozen.outcome }}
+          PRIOR: ${{ steps.prior.outcome }}
+          EXTEND: ${{ steps.extend.outcome }}
+        run: |
+          for k in PYTHON RUST FROZEN PRIOR EXTEND; do
+            if [[ "${!k}" != success ]]; then
+              echo "::error::$k = ${!k}; inherited ledger cannot be promoted"
+              exit 1
+            fi
+          done
+          echo "Source-owned continuity checked; UTC, custody and recovery HOLD."
