@@ -96,6 +96,7 @@ def main():
       "sapphon-176-freeze.yml":("f17b3d6c437da7f82240fffae703dfbde61a215b","final-evidence"),
       "sapphon-177-evidence.yml":("3053c21609333ea93d74ff2d38aeeed1c27d6084","executable-diagnostics"),
       "sapphon-178-isolation.yml":("71931a8602229cecad921297aabe633e810fb211","failure-isolation"),
+      "sapphon-179-replay.yml":("d07203a254678fdf7df05a75c1d144c7a8337f87","replay-diagnostics"),
     }
     if (a.workflow not in valid_targets or
         (a.sha,a.required_job)!=valid_targets[a.workflow]):
