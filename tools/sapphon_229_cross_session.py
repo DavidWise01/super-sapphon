@@ -31,12 +31,16 @@ def verify_signed_head(checkpoint,anchor,last):
     p=checkpoint["payload"]
     if type(p) is not dict or set(p)!=HEAD_FIELDS or p.get("schema")!="sapphon-229-signed-session-head-v1":
         return False,["SIGNED_HIGHWATER_PAYLOAD_INVALID"]
+    last_records=last.get("records")
+    last_count=len(last_records) if type(last_records) is list else -1
+    terminal=(last_records[-1].get("entry_sha256") if last_count>0
+              and type(last_records[-1]) is dict else None)
     if (p.get("source_run")!=frozen.SOURCE_RUN or
         p.get("source_commit")!=frozen.SOURCE_COMMIT or
         p.get("session_id")!=last.get("session_id") or
         type(p.get("record_count")) is not int or
-        p.get("record_count")!=len(last.get("records",[])) or
-        p.get("head_sha256")!=(last["records"][-1]["entry_sha256"] if last.get("records") else None)):
+        p.get("record_count")!=last_count or
+        p.get("head_sha256")!=terminal):
         failures.append("SIGNED_HIGHWATER_NOT_CURRENT_SESSION")
     if type(p.get("claimed_utc")) is not str or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ",p["claimed_utc"]):
         failures.append("SIGNED_HIGHWATER_UTC_SYNTAX")
