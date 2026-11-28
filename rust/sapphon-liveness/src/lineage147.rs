@@ -38,7 +38,7 @@ pub fn inspect_lineage(
     a: (&Anchor, Custodian<'_>),
     b: (&Anchor, Custodian<'_>),
 ) -> Result<LineageReview, Error> {
-    let pair=dual_anchor146::compare(a,b)?;
+    let pair=dual_anchor146::compare(a.clone(),b.clone())?;
     let verified=registry137::verify(transcript,local_seq,local_head)?;
     let (older,newer)=if a.0.sequence<=b.0.sequence {(a.0,b.0)} else {(b.0,a.0)};
     if newer.sequence>verified.seq {return Err(Error("LINEAGE_NEWER_NOT_OBSERVED"));}
