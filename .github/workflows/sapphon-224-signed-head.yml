@@ -1,0 +1,53 @@
+name: SAPPHON-224 Signed Checkpoint Heads and Fork-Resistance HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_224_signed_head.py'
+      - 'tools/test_sapphon_224_signed_head.py'
+      - '.github/workflows/sapphon-224-signed-head.yml'
+      - 'docs/sapphon/phase-xx/224/**'
+permissions:
+  contents: read
+jobs:
+  no-external-head-promotion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify anchored Ed25519 head and fork-resistance regressions
+        run: |
+          python3 -m py_compile tools/sapphon_224_signed_head.py tools/test_sapphon_224_signed_head.py
+          python3 tools/test_sapphon_224_signed_head.py
+      - name: Keep missing independent heads and key anchors on HOLD
+        run: |
+          mkdir -p qualification-evidence
+          printf '[]\n' > qualification-evidence/224-no-heads.json
+          printf '{}\n' > qualification-evidence/224-no-anchor.json
+          set +e
+          python3 tools/sapphon_224_signed_head.py \
+            --heads qualification-evidence/224-no-heads.json \
+            --anchor qualification-evidence/224-no-anchor.json \
+            --records qualification-evidence/224-no-heads.json \
+            --out qualification-evidence/224-head-verdict.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          python3 - <<'PY'
+          import json
+          v=json.load(open('qualification-evidence/224-head-verdict.json'))
+          assert v['state']=='SIGNED_HEAD_REJECTED_HOLD'
+          assert v['independently_authenticated_witnesses']==0
+          assert not v['recovery_authorized'] and not v['lock_cleared']
+          print('SAPPHON_224_EXTERNAL_HEAD_AND_TRUST_ROOT_MISSING__HOLD')
+          PY
+      - name: Retain bounded signed-head evidence verdict
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-224-signed-head-hold
+          path: qualification-evidence/224-head-verdict.json
+          retention-days: 30
+          if-no-files-found: error
