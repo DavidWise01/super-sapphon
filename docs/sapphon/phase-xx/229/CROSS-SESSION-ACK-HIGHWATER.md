@@ -7,10 +7,10 @@ SAPPHON-228 GitHub Actions [run 46166461387](https://github.com/DavidWise01/supe
 ## SAPPHON-229 implementation
 
 - `tools/sapphon_229_cross_session.py` re-verifies the **entire signed ACK history** in every submitted session, checking signatures, original image ancestry, digest-linked history rows, counters and duplicate nonces.
-- Requires each successive session to contain the exact preceding session's immutable record prefix, append at least one new row and declare the exact prior head digest. It rejects empty-session resets, truncated history, forked or modified record prefixes, replayed receipts, reused nonces, duplicate session identifiers, and invalid or stale highwater claims.
+- Requires each successive session to contain the exact preceding session's immutable record prefix, append at least one new row and declare the exact prior head digest. It rejects empty-session resets, truncated history, forked or modified record prefixes, replayed receipts, reused nonces, duplicate session identifiers, and invalid or stale highwater claims. The signed-head checker also fails closed when a malformed terminal row lacks its digest, rather than raising an exception.
 - An optional checkpoint head is verified with Ed25519 against a separately supplied public key and checks exact source run/commit, session identity, terminal record count and digest. The *signing key's independent provenance is unverified*. A valid head signature reports **structural byte agreement only**, never externally authenticated global monotonicity.
 - The source-owned report is deterministically SHA-256-bound and always retains `independently_authenticated_witnesses=0`, `recovery_authorized=false`, `lock_cleared=false`, and `decision=HOLD`.
-- `tools/test_sapphon_229_cross_session.py` authors 16 positive and adversarial fixture tests; `.github/workflows/sapphon-229-cross-session.yml` tests the implementation on a separate hosted runner and archives both structurally matching and deliberately truncated **synthetic** session examples.
+- `tools/test_sapphon_229_cross_session.py` authors 17 positive and adversarial fixture tests; `.github/workflows/sapphon-229-cross-session.yml` tests the implementation on a separate hosted runner and archives both structurally matching and deliberately truncated **synthetic** session examples.
 
 ## Limitations and external boundary
 
