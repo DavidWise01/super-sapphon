@@ -62,7 +62,7 @@ pub fn assess(x:&Input)->Result<Finding,Error>{
  }
  errors.sort();errors.dedup();
  let bytes=serde_json::to_vec(&ordered).map_err(|_|Error("FREEZE208_ENCODING"))?;
- Ok(Finding{schema:"sapphon-208-rust-final-freeze-v1",
+ Ok(Finding{schema:"sapphon-208-rust-final-freeze-v1".into(),
   source_design_complete:true,vendor_readback_qualified:vendor,
   local_image_readback_qualified:image,blockers:errors,
   source_inventory_sha256:sha(&bytes),
