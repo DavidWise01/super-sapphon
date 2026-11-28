@@ -26,9 +26,13 @@ jobs:
         run: |
           mkdir -p qualification-evidence
           printf '{}\n' > qualification-evidence/221-no-external-receipt.json
+          set +e
           python3 tools/sapphon_221_attestation.py \
             --receipt qualification-evidence/221-no-external-receipt.json \
-            --out qualification-evidence/221-intake-verdict.json && exit 1 || test "$?" -eq 1
+            --out qualification-evidence/221-intake-verdict.json
+          result=$?
+          set -e
+          test "$result" -eq 1
           python3 - <<'PY'
           import json
           o=json.load(open("qualification-evidence/221-intake-verdict.json"))
