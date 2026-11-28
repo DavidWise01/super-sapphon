@@ -1,0 +1,49 @@
+name: SAPPHON-231 Signed Custody Claims & Reconciliation HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_231_custody_reconciliation.py'
+      - 'tools/test_sapphon_231_custody_reconciliation.py'
+      - '.github/workflows/sapphon-231-custody.yml'
+      - 'docs/sapphon/phase-xx/231/**'
+permissions:
+  contents: read
+jobs:
+  custody-reconciliation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Execute signed custody and anti-promotion regressions
+        run: |
+          python3 -m py_compile tools/sapphon_231_custody_reconciliation.py tools/test_sapphon_231_custody_reconciliation.py
+          PYTHONPATH=tools python3 tools/test_sapphon_231_custody_reconciliation.py
+      - name: Retain conflicting signed external-looking receipts without trust promotion
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from test_sapphon_231_custody_reconciliation import fixture,receipt
+          from sapphon_231_custody_reconciliation import assess
+          f=fixture()
+          result=assess(f,[receipt(f,0),receipt(f,1,"outside-b")])
+          assert result["matched_signed_receipts"]==2
+          assert len(result["candidate_heads_retained"])==2
+          assert result["independently_authenticated_witnesses"]==0
+          assert result["recovery_authorized"] is False and result["lock_cleared"] is False
+          assert result["reconciliation"]=="NO_WINNER_SELECTED"
+          Path("qualification-evidence/231-signed-custody-claims-hold.json").write_text(json.dumps(result,sort_keys=True,indent=2)+"\n")
+          print("SAPPHON_231_SIGNED_RECEIPTS_NOT_INDEPENDENT_CUSTODY__HOLD")
+          PY
+      - name: Archive source-owned synthetic qualification only
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-231-source-owned-custody-hold
+          path: qualification-evidence/231-*.json
+          retention-days: 30
+          if-no-files-found: error
