@@ -33,7 +33,8 @@ def assess(summary, image_report=None, image_bytes=None, receipt=None):
         value = str(image_report.get(field, ""))
         if not (value.startswith("sha256:") and SHA.fullmatch(value[7:])):
             blockers.append(field.upper() + "_INVALID")
-    observed = (image_bytes if isinstance(image_bytes, str) and SHA.fullmatch(image_bytes) else\n                hashlib.sha256(image_bytes).hexdigest() if isinstance(image_bytes, bytes) and image_bytes else None)
+    observed = (image_bytes if isinstance(image_bytes, str) and SHA.fullmatch(image_bytes) else
+                hashlib.sha256(image_bytes).hexdigest() if isinstance(image_bytes, bytes) and image_bytes else None)
     if observed is None:
         blockers.append("ORIGINAL_IMAGE_ARCHIVE_UNAVAILABLE")
     if observed is None or image_report.get("archive_sha256") != observed or summary.get("built_image_archive_sha256") != observed:
