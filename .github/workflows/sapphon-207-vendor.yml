@@ -14,6 +14,7 @@ on:
       - 'tools/test_sapphon_214_image.py'
       - 'tools/sapphon_215_image_gate.py'
       - 'tools/test_sapphon_215_image_gate.py'
+      - 'tools/sapphon_216_resolve_base.sh'
 permissions:
   contents: read
   actions: read
@@ -68,12 +69,17 @@ jobs:
             --report-out qualification-artifact/207-vendor.json \
             --tar-out qualification-artifact/207-vendor.tar
           rm -rf qualification-artifact/vendor
-      - name: Local image evidence requires pinned actual base digest
-        id: image
+      - name: Resolve and pin actual Rust base image digest (discovery cannot grant custody)
+        id: base
         if: steps.vendor.outcome == 'success'
         continue-on-error: true
         env:
-          BASE: ${{ vars.SAPPHON_RUST_BASE_IMAGE }}
+          REQUESTED_BASE: ${{ vars.SAPPHON_RUST_BASE_IMAGE }}
+        run: bash tools/sapphon_216_resolve_base.sh
+      - name: Local image evidence requires pinned actual base digest
+        id: image
+        if: steps.vendor.outcome == 'success' && steps.base.outcome == 'success'
+        continue-on-error: true
         run: |
           set -euo pipefail
           if [[ ! "$BASE" =~ ^[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$ ]]; then
@@ -181,6 +187,7 @@ jobs:
             qualification-artifact/207-image.tar
             qualification-artifact/207-summary.json
             qualification-artifact/215-image-verdict.json
+            qualification-artifact/216-base-resolution.json
           retention-days: 30
           if-no-files-found: error
       - name: Fail source or vendor checks, leave missing image explicitly held
