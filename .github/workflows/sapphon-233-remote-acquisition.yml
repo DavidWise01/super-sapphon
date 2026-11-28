@@ -1,0 +1,50 @@
+name: SAPPHON-233 Remote Byte Acquisition & Ancestry HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_233_remote_acquisition.py'
+      - 'tools/test_sapphon_233_remote_acquisition.py'
+      - 'qualification/sapphon-233-targets.json'
+      - '.github/workflows/sapphon-233-remote-acquisition.yml'
+      - 'docs/sapphon/phase-xx/233/**'
+permissions:
+  contents: read
+jobs:
+  remote-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run 16 synthetic acquisition and ancestry regressions
+        run: |
+          python3 -m py_compile tools/sapphon_233_remote_acquisition.py tools/test_sapphon_233_remote_acquisition.py
+          PYTHONPATH=tools python3 tools/test_sapphon_233_remote_acquisition.py
+      - name: Acquire actual pinned owner-corpus HTTPS bytes
+        run: |
+          mkdir -p qualification-evidence
+          python3 tools/sapphon_233_remote_acquisition.py \
+            --targets qualification/sapphon-233-targets.json \
+            --out qualification-evidence/233-remote-readback.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open("qualification-evidence/233-remote-readback.json"))
+          assert p["recovery_authorized"] is False and p["lock_cleared"] is False
+          assert p["independently_authenticated_witnesses"]==0
+          assert p["reconciliation"]=="NO_WINNER_SELECTED"
+          # Fail closed if the pinned source cannot be fetched.
+          assert p["observed_count"]==1,p["blockers"]
+          assert list(p["declared_ancestry_groups"])==["DavidWise01/super-sapphon"]
+          print("SAPPHON_233_REMOTE_OWNER_BYTES_OBSERVED__INDEPENDENT_CUSTODY_HOLD")
+          PY
+      - name: Archive remote acquisition status (not external custody)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-233-source-owned-remote-readback
+          path: qualification-evidence/233-*.json
+          retention-days: 30
+          if-no-files-found: warn
