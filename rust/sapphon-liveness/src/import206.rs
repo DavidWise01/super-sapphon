@@ -41,7 +41,7 @@ pub fn assess(x:&Input)->Result<Finding,Error>{
   x.cargo_lock_sha256==x.reported_lock_sha256&&
   x.cargo_lock_sha256==x.summary_lock_sha256;
  if !matched{bad.push("CARGO_LOCK_BYTE_FORK_OR_MISSING".into());}
- if !x.original_vendor_bytes_observed||x.vendor_sha256.as_deref().is_none_or(hex64){
+ if !x.original_vendor_bytes_observed||!x.vendor_sha256.as_deref().is_some_and(hex64){
   bad.push("ORIGINAL_VENDOR_BYTES_NOT_OBSERVED".into());
  }
  if !x.original_image_digest_verified{
@@ -93,6 +93,12 @@ mod tests{
  assert!(!assess(&x).unwrap().original_lock_bytes_consistent);}
  #[test]fn missing_vendor_denied(){let x=assess(&good()).unwrap();
  assert!(x.blockers.iter().any(|b|b=="ORIGINAL_VENDOR_BYTES_NOT_OBSERVED"));}
+ #[test]fn malformed_vendor_hash_denied(){let mut x=good();
+ x.original_vendor_bytes_observed=true;x.vendor_sha256=Some("not-sha256".into());
+ x.original_image_digest_verified=true;let r=assess(&x).unwrap();
+ assert!(!r.offline_image_qualified);
+ assert!(r.blockers.iter().any(|b|b=="ORIGINAL_VENDOR_BYTES_NOT_OBSERVED"));
+ assert!(!r.recovery_authorized);}
  #[test]fn false_external_custody(){let mut x=good();x.external_custody_claim=true;
  assert!(!assess(&x).unwrap().offline_image_qualified);}
  #[test]fn no_recovery_even_complete(){let mut x=good();
