@@ -1,0 +1,43 @@
+name: SAPPHON-218 Exact Image Artifact Second-Runner Readback
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_218_second_runner.py'
+      - '.github/workflows/sapphon-218-image-readback.yml'
+      - 'docs/sapphon/phase-xx/218/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  exact-owned-readback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Fetch exact source-owned artifact from qualified run
+        uses: actions/download-artifact@v4
+        with:
+          name: sapphon-207-vendor-and-local-image
+          run-id: 46154833375
+          github-token: ${{ github.token }}
+          path: qualification-artifact
+      - name: Rehash extracted image and vendor bytes, verify ancestry and HOLD
+        run: |
+          python3 tools/sapphon_218_second_runner.py \
+            --root qualification-artifact \
+            --run 46154833375 \
+            --attempt 1 \
+            --commit c167a95a05177e280625fa61613c1b1fa20f75e9 \
+            --out qualification-readback/218-readback.json
+      - name: Retain compact readback report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-218-second-runner-readback
+          path: qualification-readback/218-readback.json
+          if-no-files-found: warn
+          retention-days: 30
