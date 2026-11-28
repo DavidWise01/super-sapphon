@@ -48,7 +48,8 @@ class Tests(unittest.TestCase):
   self.assertEqual(m.inspect_artifact(None,{"id":207,"run_attempt":2})["state"],"ORIGINAL_ZIP_UNAVAILABLE_OR_OVERSIZE")
  def test_missing_vendor_member(self):
   v=fixture();v.pop("207-vendor.tar")
-  self.assertEqual(inspect(v)["state"],"UNSAFE_OR_DUPLICATE_ARTIFACT")
+  self.assertEqual(inspect(v)["state"],"ORIGINAL_REQUIRED_VENDOR_FILES_MISSING")
+  self.assertEqual(inspect(v)["missing_files"],["207-vendor.tar"])
  def test_wrong_run_attempt(self):
   v=fixture();v["207-summary.json"]["attempt"]="3"
   self.assertEqual(inspect(v)["state"],"ORIGINAL_RUN_ATTEMPT_CONFLICT")
