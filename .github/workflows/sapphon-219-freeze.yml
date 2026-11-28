@@ -1,0 +1,45 @@
+name: SAPPHON-219 Frozen OCI Cross-Runner Adjudication
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_219_cross_runner.py'
+      - 'tools/test_sapphon_219_cross_runner.py'
+      - '.github/workflows/sapphon-219-freeze.yml'
+      - 'docs/sapphon/phase-xx/219/**'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verified-byte-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run immutable ancestry and authority regressions
+        run: |
+          python3 -m py_compile tools/sapphon_219_cross_runner.py tools/test_sapphon_219_cross_runner.py
+          python3 tools/test_sapphon_219_cross_runner.py
+      - name: Fetch only compact SAPPHON-218 readback artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sapphon-218-second-runner-readback
+          run-id: 46156872306
+          github-token: ${{ github.token }}
+          path: qualification-input
+      - name: Adjudicate original observed image, vendor and Cargo byte parity
+        run: |
+          python3 tools/sapphon_219_cross_runner.py \
+            --input qualification-input/218-readback.json \
+            --out qualification-evidence/219-frozen.json
+      - name: Retain source-owned freeze verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-219-source-owned-parity
+          path: qualification-evidence/219-frozen.json
+          if-no-files-found: warn
+          retention-days: 30
