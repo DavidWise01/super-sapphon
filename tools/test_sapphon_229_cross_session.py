@@ -109,4 +109,10 @@ class Tests(unittest.TestCase):
   h["payload"]["record_count"]=True
   self.assertIn("SIGNED_HIGHWATER_NOT_CURRENT_SESSION",m.audit(ss,b,a,h,k)["blockers"])
 
+ def test_missing_terminal_digest_fails_closed(self):
+  ss,b,a=sample_sessions();h,k=signed_head(ss)
+  missing={"session_id":ss[-1]["session_id"],"records":[{"sequence":2}]}
+  valid,errors=m.verify_signed_head(h,k,missing)
+  self.assertFalse(valid)
+  self.assertIn("SIGNED_HIGHWATER_NOT_CURRENT_SESSION",errors)
 if __name__=="__main__":unittest.main()
