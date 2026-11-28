@@ -1,0 +1,47 @@
+name: SAPPHON-221 Cryptographic Witness Intake HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_221_attestation.py'
+      - 'tools/test_sapphon_221_attestation.py'
+      - '.github/workflows/sapphon-221-witness-intake.yml'
+      - 'docs/sapphon/phase-xx/221/**'
+permissions:
+  contents: read
+jobs:
+  signature-intake-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify Ed25519 cryptographic negative controls
+        run: |
+          python3 -m py_compile tools/sapphon_221_attestation.py tools/test_sapphon_221_attestation.py
+          python3 tools/test_sapphon_221_attestation.py
+      - name: Record no-external-receipt custody HOLD
+        run: |
+          mkdir -p qualification-evidence
+          printf '{}\n' > qualification-evidence/221-no-external-receipt.json
+          python3 tools/sapphon_221_attestation.py \
+            --receipt qualification-evidence/221-no-external-receipt.json \
+            --out qualification-evidence/221-intake-verdict.json && exit 1 || test "$?" -eq 1
+          python3 - <<'PY'
+          import json
+          o=json.load(open("qualification-evidence/221-intake-verdict.json"))
+          assert o["state"]=="RECEIPT_REJECTED_HOLD"
+          assert o["signature_valid"] is False
+          assert o["independently_authenticated_witnesses"]==0
+          assert o["recovery_authorized"] is False and o["lock_cleared"] is False
+          print("SAPPHON_221_NO_EXTERNAL_WITNESS__RECOVERY_HOLD")
+          PY
+      - name: Retain source-owned negative-control verdict
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-221-signature-intake-hold
+          path: qualification-evidence/221-intake-verdict.json
+          retention-days: 30
+          if-no-files-found: error
