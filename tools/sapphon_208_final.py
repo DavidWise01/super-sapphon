@@ -48,11 +48,13 @@ def inspect_artifact(raw,run):
  try:
   with zipfile.ZipFile(io.BytesIO(raw)) as zipf:
    members=zipf.infolist();names=[v.filename for v in members]
-   if len(names)!=len(set(names)) or not REQUIRED.issubset(set(names)) or any(
+   if len(names)!=len(set(names)) or any(
     not f.filename or f.is_dir() or f.flag_bits&1 or "/" in f.filename or
     "\\" in f.filename or stat.S_ISLNK(f.external_attr>>16) or
     f.file_size>MAX_ARCHIVE for f in members):
     return hold("UNSAFE_OR_DUPLICATE_ARTIFACT")
+   if not REQUIRED.issubset(set(names)):
+    return hold("ORIGINAL_REQUIRED_VENDOR_FILES_MISSING",missing_files=sorted(REQUIRED-set(names)))
    present=set(names)&IMAGE_FILES
    if present and present!=IMAGE_FILES:return hold("PARTIAL_IMAGE_ARCHIVE")
    report=json.loads(zipf.read("207-vendor.json"))
