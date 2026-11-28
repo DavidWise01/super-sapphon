@@ -1,0 +1,9 @@
+[
+  {
+    "id": "sapphon-232-owner-repo-readback",
+    "url": "https://raw.githubusercontent.com/DavidWise01/super-sapphon/a7fc00f4f7c0e03d75a70897aa9c813c1b273f54/docs/sapphon/phase-xx/232/THREE-WITNESS-READBACK-ANCESTRY-HOLD.md",
+    "ancestry_root": "DavidWise01/super-sapphon",
+    "expected_sha256": null,
+    "claimed_operator": "GitHub-hosted-owner-corpus"
+  }
+]
