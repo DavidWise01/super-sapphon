@@ -12,6 +12,8 @@ on:
       - 'tools/sapphon-207.Dockerfile'
       - 'tools/sapphon-214.Dockerfile'
       - 'tools/test_sapphon_214_image.py'
+      - 'tools/sapphon_215_image_gate.py'
+      - 'tools/test_sapphon_215_image_gate.py'
 permissions:
   contents: read
   actions: read
@@ -31,6 +33,7 @@ jobs:
           python3 tools/test_sapphon_207_vendor.py
           python3 tools/test_sapphon_206_import_lock.py
           python3 tools/test_sapphon_214_image.py
+          python3 tools/test_sapphon_215_image_gate.py
       - name: Rust provenance regressions
         id: rust
         continue-on-error: true
@@ -150,6 +153,20 @@ jobs:
           pathlib.Path('qualification-artifact/207-summary.json').write_text(
             json.dumps(body,sort_keys=True,indent=2)+'\n')
           PY
+      - name: Record explicit image qualification verdict (HOLD unless bytes match)
+        if: always()
+        run: |
+          python3 tools/sapphon_215_image_gate.py
+          python3 - <<'PY'
+          import json,os,pathlib
+          p=pathlib.Path('qualification-artifact/215-image-verdict.json')
+          v=json.loads(p.read_text())
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as f:
+              f.write("## SAPPHON-215 image gate\\n\\n")
+              f.write("**"+v['state']+"** — distinct from vendor success.\\n\\n")
+              f.write("Blockers: "+(", ".join(v['blockers']) if v['blockers'] else "none")+"\\n\\n")
+              f.write("Recovery: **HOLD** · independent witnesses: **0**\\n")
+          PY
       - name: Preserve vendor byte archive and optional original local image evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -163,6 +180,7 @@ jobs:
             qualification-artifact/207-image.sha256
             qualification-artifact/207-image.tar
             qualification-artifact/207-summary.json
+            qualification-artifact/215-image-verdict.json
           retention-days: 30
           if-no-files-found: error
       - name: Fail source or vendor checks, leave missing image explicitly held
