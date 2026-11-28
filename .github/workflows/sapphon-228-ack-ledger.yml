@@ -1,0 +1,57 @@
+name: SAPPHON-228 Signed Custody ACK Replay Protection HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_228_ack_ledger.py'
+      - 'tools/test_sapphon_228_ack_ledger.py'
+      - '.github/workflows/sapphon-228-ack-ledger.yml'
+      - 'docs/sapphon/phase-xx/228/**'
+permissions:
+  contents: read
+jobs:
+  source-owned-ack-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check syntax and 14 bounded ACK history regressions
+        run: |
+          python3 -m py_compile tools/sapphon_228_ack_ledger.py tools/test_sapphon_228_ack_ledger.py
+          PYTHONPATH=tools python3 tools/test_sapphon_228_ack_ledger.py
+      - name: Generate synthetic signed ACK then prove repeat submission rejected
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json,pathlib
+          import sapphon_228_ack_ledger as ledger
+          from test_sapphon_227_portable_readback import sample,make_ack
+          bundle,source_anchor=sample()
+          ack,ack_anchor=make_ack(bundle)
+          one=ledger.adjudicate([],bundle,source_anchor,ack,ack_anchor)
+          replay=ledger.adjudicate(one["records"],bundle,source_anchor,ack,ack_anchor)
+          assert one["state"]=="SOURCE_OWNED_ACK_APPENDED_CUSTODY_HOLD"
+          assert one["record_count"]==1
+          assert replay["state"]=="ACK_REPLAY_OR_INTAKE_REJECTED_HOLD"
+          assert "TRANSFER_NONCE_ALREADY_USED" in replay["blockers"]
+          assert "SIGNED_ACK_ALREADY_RECORDED" in replay["blockers"]
+          assert replay["records"]==one["records"]
+          assert replay["independently_authenticated_witnesses"]==0
+          assert replay["recovery_authorized"] is False
+          assert replay["lock_cleared"] is False
+          assert replay["reconciliation"]=="NO_WINNER_SELECTED"
+          for filename,obj in (("228-synthetic-first-ack.json",one),
+                               ("228-synthetic-ack-replay-denied.json",replay)):
+              pathlib.Path("qualification-evidence",filename).write_text(json.dumps(obj,sort_keys=True,indent=2)+"\n")
+          print("SAPPHON_228_SYNTHETIC_NONCE_REPLAY_REJECTED__RECOVERY_HOLD")
+          PY
+      - name: Retain immutable run evidence without external authority
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-228-ack-replay-hold
+          path: qualification-evidence/228-*.json
+          retention-days: 30
+          if-no-files-found: error
