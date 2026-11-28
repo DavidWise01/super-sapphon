@@ -33,7 +33,7 @@ def assess(summary, image_report=None, image_bytes=None, receipt=None):
         value = str(image_report.get(field, ""))
         if not (value.startswith("sha256:") and SHA.fullmatch(value[7:])):
             blockers.append(field.upper() + "_INVALID")
-    observed = hashlib.sha256(image_bytes).hexdigest() if isinstance(image_bytes, bytes) and image_bytes else None
+    observed = (image_bytes if isinstance(image_bytes, str) and SHA.fullmatch(image_bytes) else\n                hashlib.sha256(image_bytes).hexdigest() if isinstance(image_bytes, bytes) and image_bytes else None)
     if observed is None:
         blockers.append("ORIGINAL_IMAGE_ARCHIVE_UNAVAILABLE")
     if observed is None or image_report.get("archive_sha256") != observed or summary.get("built_image_archive_sha256") != observed:
@@ -80,8 +80,13 @@ def main():
         receipt = (d/"207-image.sha256").read_text()
     except OSError:
         receipt = None
+    image_path = d/"207-image.tar"
+    image_hash = None
+    if image_path.is_file() and image_path.stat().st_size > 0:
+        with image_path.open("rb") as f:
+            image_hash = hashlib.file_digest(f, "sha256").hexdigest()
     result = assess(read_json("207-summary.json"), read_json("207-image-report.json"),
-                    read_bytes("207-image.tar"), receipt)
+                    image_hash, receipt)
     out = pathlib.Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n")
