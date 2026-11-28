@@ -1,0 +1,55 @@
+name: SAPPHON-229 Cross-Session ACK Continuity HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_229_cross_session.py'
+      - 'tools/test_sapphon_229_cross_session.py'
+      - '.github/workflows/sapphon-229-cross-session.yml'
+      - 'docs/sapphon/phase-xx/229/**'
+permissions:
+  contents: read
+jobs:
+  cross-session-head-no-promotion:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Check syntax and cross-session replay regression suite
+        run: |
+          python3 -m py_compile tools/sapphon_229_cross_session.py tools/test_sapphon_229_cross_session.py
+          PYTHONPATH=tools python3 tools/test_sapphon_229_cross_session.py
+      - name: Verify two signed synthetic sessions and evidence-bound HOLD verdict
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from test_sapphon_229_cross_session import sample_sessions,signed_head
+          import sapphon_229_cross_session as gate
+          sessions,bundle,source_anchor=sample_sessions()
+          signed,head_anchor=signed_head(sessions)
+          verified=gate.audit(sessions,bundle,source_anchor,signed,head_anchor)
+          reset=[sessions[0],dict(sessions[1],records=sessions[1]["records"][:1])]
+          rejected=gate.audit(reset,bundle,source_anchor,signed,head_anchor)
+          assert verified["state"]=="CROSS_SESSION_SIGNED_HEAD_BYTES_MATCH_HOLD"
+          assert verified["independently_authenticated_witnesses"]==0
+          assert verified["recovery_authorized"] is False
+          assert verified["lock_cleared"] is False
+          assert "SESSION_HISTORY_TRUNCATED_OR_NOT_ADVANCED" in rejected["blockers"]
+          assert rejected["state"]=="CROSS_SESSION_REJECTED_HOLD"
+          for name,datum in (("229-valid-source-owned-structural-head.json",verified),
+                             ("229-truncated-session-rejected.json",rejected)):
+              Path("qualification-evidence",name).write_text(json.dumps(datum,sort_keys=True,indent=2)+"\n")
+          print("SAPPHON_229_CROSS_SESSION_REPLAY_DETECTED__EXTERNAL_CUSTODY_HOLD")
+          PY
+      - name: Preserve append-only source-owned gate reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-229-cross-session-highwater-hold
+          path: qualification-evidence/229-*.json
+          if-no-files-found: error
+          retention-days: 30
