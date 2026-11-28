@@ -1,0 +1,56 @@
+name: SAPPHON-227 Portable Fork Bundle Replay and Custody ACK HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_227_portable_readback.py'
+      - 'tools/test_sapphon_227_portable_readback.py'
+      - '.github/workflows/sapphon-227-portable-readback.yml'
+      - 'docs/sapphon/phase-xx/227/**'
+permissions:
+  contents: read
+jobs:
+  source-owned-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify 13 signed bundle and custody ACK regressions
+        run: |
+          python3 -m py_compile tools/sapphon_227_portable_readback.py tools/test_sapphon_227_portable_readback.py
+          PYTHONPATH=tools python3 tools/test_sapphon_227_portable_readback.py
+      - name: Build source-owned signed-fork fixture and rehash portable export
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json,pathlib
+          from test_sapphon_227_portable_readback import sample
+          bundle,anchor=sample()
+          for filename,obj in (("227-fixture-bundle.json",bundle),("227-fixture-source-anchor.json",anchor)):
+              pathlib.Path("qualification-evidence",filename).write_text(json.dumps(obj,indent=2,sort_keys=True)+"\n")
+          PY
+          PYTHONPATH=tools python3 tools/sapphon_227_portable_readback.py \
+            --bundle qualification-evidence/227-fixture-bundle.json \
+            --source-anchor qualification-evidence/227-fixture-source-anchor.json \
+            --out qualification-evidence/227-transfer-verdict.json
+          python3 - <<'PY'
+          import json
+          p=json.load(open("qualification-evidence/227-transfer-verdict.json"))
+          assert p["state"]=="PORTABLE_BUNDLE_REPLAYED_ACK_HOLD"
+          assert p["heads_preserved"]==2 and p["forks_preserved"]==1
+          assert p["independently_authenticated_witnesses"]==0
+          assert p["recovery_authorized"] is False and p["lock_cleared"] is False
+          print("SAPPHON_227_SOURCE_OWNED_FORK_REPLAY__EXTERNAL_CUSTODY_HOLD")
+          PY
+      - name: Retain source-owned non-destructive transfer fixture
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-227-portable-fork-replay-hold
+          path: |
+            qualification-evidence/227-fixture-bundle.json
+            qualification-evidence/227-transfer-verdict.json
+          if-no-files-found: error
+          retention-days: 30
