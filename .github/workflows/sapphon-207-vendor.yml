@@ -15,6 +15,7 @@ on:
       - 'tools/sapphon_215_image_gate.py'
       - 'tools/test_sapphon_215_image_gate.py'
       - 'tools/sapphon_216_resolve_base.sh'
+      - 'tools/test_sapphon_216_resolve_base.py'
 permissions:
   contents: read
   actions: read
@@ -35,6 +36,7 @@ jobs:
           python3 tools/test_sapphon_206_import_lock.py
           python3 tools/test_sapphon_214_image.py
           python3 tools/test_sapphon_215_image_gate.py
+          python3 tools/test_sapphon_216_resolve_base.py
       - name: Rust provenance regressions
         id: rust
         continue-on-error: true
