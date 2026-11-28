@@ -1,0 +1,49 @@
+name: SAPPHON-234 Challenge Response Replay HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_234_challenge_response.py'
+      - 'tools/test_sapphon_234_challenge_response.py'
+      - '.github/workflows/sapphon-234-challenge-response.yml'
+      - 'docs/sapphon/phase-xx/234/**'
+permissions:
+  contents: read
+jobs:
+  nonce-bound-retention:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Execute 14 challenge response and replay regressions
+        run: |
+          python3 -m py_compile tools/sapphon_234_challenge_response.py tools/test_sapphon_234_challenge_response.py
+          PYTHONPATH=tools python3 tools/test_sapphon_234_challenge_response.py
+      - name: Preserve session-local signed response qualification and replay state proposal
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from test_sapphon_234_challenge_response import pair
+          from sapphon_234_challenge_response import verify
+          pairs=[pair("synthetic-"+str(i)) for i in range(3)]
+          result=verify([p[0] for p in pairs],[p[1] for p in pairs])
+          assert result["locally_valid_responses"]==3,result["blockers"]
+          assert result["independently_authenticated_witnesses"]==0
+          assert result["replay_state_committed"] is False
+          assert result["recovery_authorized"] is False and result["lock_cleared"] is False
+          Path("qualification-evidence/234-local-nonce-challenges-HOLD.json").write_text(
+              json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("SAPPHON_234_LOCAL_CHALLENGE_RESPONSE_VERIFIED__EXTERNAL_CUSTODY_HOLD")
+          PY
+      - name: Archive source-owned challenge response evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-234-local-challenge-hold
+          path: qualification-evidence/234-*.json
+          retention-days: 30
+          if-no-files-found: error
