@@ -1,0 +1,42 @@
+name: SAPPHON-220 Independent Custody Handoff HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_220_custody_handoff.py'
+      - 'tools/test_sapphon_220_custody_handoff.py'
+      - '.github/workflows/sapphon-220-custody-handoff.yml'
+      - 'docs/sapphon/phase-xx/220/**'
+permissions:
+  contents: read
+jobs:
+  bounded-handoff:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify custody handoff source and negative controls
+        run: |
+          python3 -m py_compile tools/sapphon_220_custody_handoff.py tools/test_sapphon_220_custody_handoff.py
+          python3 tools/test_sapphon_220_custody_handoff.py
+      - name: Issue evidence-bound manifest without witness promotion
+        run: |
+          python3 tools/sapphon_220_custody_handoff.py --out qualification-evidence/220-handoff.json
+          python3 - <<'PY'
+          import json
+          v=json.load(open("qualification-evidence/220-handoff.json"))
+          assert v["source_run"]=="46154833375"
+          assert v["recovery_authorized"] is False and v["lock_cleared"] is False
+          assert len(v["sha256"])==3
+          print("SOURCE_OWNED_HANDOFF_AUTHORITY_HOLD")
+          PY
+      - name: Retain source-owned manifest for external custody handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-220-custody-handoff-hold
+          path: qualification-evidence/220-handoff.json
+          retention-days: 30
+          if-no-files-found: error
