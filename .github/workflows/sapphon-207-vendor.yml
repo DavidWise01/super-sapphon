@@ -10,6 +10,8 @@ on:
       - '.github/workflows/sapphon-207-vendor.yml'
       - 'docs/sapphon/phase-xx/207/**'
       - 'tools/sapphon-207.Dockerfile'
+      - 'tools/sapphon-214.Dockerfile'
+      - 'tools/test_sapphon_214_image.py'
 permissions:
   contents: read
   actions: read
@@ -28,6 +30,7 @@ jobs:
           set -euo pipefail
           python3 tools/test_sapphon_207_vendor.py
           python3 tools/test_sapphon_206_import_lock.py
+          python3 tools/test_sapphon_214_image.py
       - name: Rust provenance regressions
         id: rust
         continue-on-error: true
@@ -76,6 +79,12 @@ jobs:
           fi
           docker pull "$BASE"
           docker image inspect "$BASE" > qualification-artifact/207-base-image.json
+          python3 - <<'PY'
+          import json,os
+          item=json.load(open('qualification-artifact/207-base-image.json'))[0]
+          if os.environ['BASE'] not in (item.get('RepoDigests') or []):
+              raise SystemExit('PINNED_BASE_REPODIGEST_NOT_OBSERVED')
+          PY
           mkdir -p qualification-artifact/docker-context/.cargo
           cp qualification-artifact/207-Cargo.lock qualification-artifact/docker-context/Cargo.lock
           cp qualification-artifact/207-vendor.tar qualification-artifact/docker-context/vendor.tar
@@ -89,7 +98,7 @@ jobs:
           offline = true
           EOF
           docker build --network=none --pull=false --build-arg "BASE=$BASE" \
-            -f tools/sapphon-207.Dockerfile \
+            -f tools/sapphon-214.Dockerfile \
             -t sapphon207:local qualification-artifact/docker-context
           docker image inspect sapphon207:local > qualification-artifact/207-built-image.json
           docker save sapphon207:local -o qualification-artifact/207-image.tar
