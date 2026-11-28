@@ -1,0 +1,52 @@
+name: SAPPHON-225 Signed Fork Preservation and Custody HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_225_fork_retention.py'
+      - 'tools/test_sapphon_225_fork_retention.py'
+      - '.github/workflows/sapphon-225-fork-retention.yml'
+      - 'docs/sapphon/phase-xx/225/**'
+permissions:
+  contents: read
+jobs:
+  retain-both-signed-forks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Verify Ed25519 fork evidence preservation and negative controls
+        run: |
+          python3 -m py_compile tools/sapphon_225_fork_retention.py tools/test_sapphon_225_fork_retention.py
+          PYTHONPATH=tools python3 tools/test_sapphon_225_fork_retention.py
+      - name: Reject missing externally authenticated signed heads
+        run: |
+          mkdir -p qualification-evidence
+          printf '[]\n' > qualification-evidence/225-no-heads.json
+          set +e
+          python3 tools/sapphon_225_fork_retention.py \
+            --heads qualification-evidence/225-no-heads.json \
+            --out qualification-evidence/225-fork-retention-verdict.json
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          python3 - <<'PY'
+          import json
+          v=json.load(open('qualification-evidence/225-fork-retention-verdict.json'))
+          assert v['state']=='SIGNED_HEAD_INTAKE_HOLD'
+          assert v['head_count']==0 and v['fork_count']==0
+          assert v['reconciliation']=='NO_WINNER_SELECTED'
+          assert v['independently_authenticated_witnesses']==0
+          assert v['recovery_authorized'] is False and v['lock_cleared'] is False
+          print('SAPPHON_225_NO_EXTERNAL_SIGNED_HEADS__HOLD')
+          PY
+      - name: Retain immutable source-owned negative-control verdict
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-225-fork-preservation-hold
+          path: qualification-evidence/225-fork-retention-verdict.json
+          if-no-files-found: error
+          retention-days: 30
