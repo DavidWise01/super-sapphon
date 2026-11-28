@@ -1,0 +1,48 @@
+name: SAPPHON-232 Three-Witness Readback & Ancestry HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_232_three_witness_readback.py'
+      - 'tools/test_sapphon_232_three_witness_readback.py'
+      - '.github/workflows/sapphon-232-three-witness.yml'
+      - 'docs/sapphon/phase-xx/232/**'
+permissions:
+  contents: read
+jobs:
+  signed-readback-ancestry:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run 13 three-witness readback regressions
+        run: |
+          python3 -m py_compile tools/sapphon_232_three_witness_readback.py tools/test_sapphon_232_three_witness_readback.py
+          PYTHONPATH=tools python3 tools/test_sapphon_232_three_witness_readback.py
+      - name: Export synthetic readback ancestry and retained conflicting histories
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          from pathlib import Path
+          from test_sapphon_232_three_witness_readback import predecessor,three
+          from sapphon_232_three_witness_readback import assess
+          p=predecessor()
+          a=three(p)
+          result=assess(p,a)
+          assert result["locally_valid_readbacks"]==3
+          assert result["independently_authenticated_witnesses"]==0
+          assert result["recovery_authorized"] is False and result["lock_cleared"] is False
+          assert result["reconciliation"]=="NO_WINNER_SELECTED"
+          Path("qualification-evidence/232-three-synthetic-readbacks-hold.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("SAPPHON_232_THREE_LOCAL_READBACKS_NOT_THREE_INDEPENDENT_WITNESSES__HOLD")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-232-source-owned-readback-hold
+          path: qualification-evidence/232-*.json
+          retention-days: 30
+          if-no-files-found: error
