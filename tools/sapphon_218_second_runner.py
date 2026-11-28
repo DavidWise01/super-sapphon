@@ -54,7 +54,7 @@ def assess(root,run,attempt,commit):
             verdict.get("image_archive_sha256"))
     try:
         receipt=(root/"207-image.sha256").read_text().split()
-        if len(receipt)!=2 or receipt[0]!=observed.get("207-image.tar") or receipt[1]!="207-image.tar":
+        if len(receipt)!=2 or receipt[0]!=observed.get("207-image.tar") or receipt[1] not in ("207-image.tar","qualification-artifact/207-image.tar"):
             blockers.append("IMAGE_RECEIPT_CONFLICT")
     except OSError: blockers.append("IMAGE_RECEIPT_MISSING")
     if vendor.get("tree_sha256")!=summary.get("vendor_tree_sha256"):
