@@ -1,0 +1,54 @@
+name: SAPPHON-230 Signed Session Fork & External Highwater HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_230_competing_sessions.py'
+      - 'tools/test_sapphon_230_competing_sessions.py'
+      - '.github/workflows/sapphon-230-session-fork.yml'
+      - 'docs/sapphon/phase-xx/230/**'
+permissions:
+  contents: read
+jobs:
+  signed-competing-heads:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Execute 16 signed session fork and highwater regression cases
+        run: |
+          python3 -m py_compile tools/sapphon_230_competing_sessions.py tools/test_sapphon_230_competing_sessions.py
+          PYTHONPATH=tools python3 tools/test_sapphon_230_competing_sessions.py
+      - name: Preserve both locally signed conflicting session branches
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import sapphon_230_competing_sessions as gate
+          from test_sapphon_230_competing_sessions import sample_competitors
+          candidates,bundle,anchor=sample_competitors()
+          fork=gate.assess(candidates,bundle,anchor)
+          matched=gate.assess(candidates,bundle,anchor,candidates[0]["signed_head"],candidates[0]["head_anchor"])
+          assert fork["state"]=="SIGNED_SESSION_FORK_PRESERVED_HOLD"
+          assert fork["fork_count"]==1 and fork["candidate_count"]==2
+          assert matched["signed_external_head_bytes_match"] is True
+          assert "EXTERNAL_HEAD_CANNOT_SELECT_FORK_WINNER" in matched["blockers"]
+          assert fork["reconciliation"]=="NO_WINNER_SELECTED"
+          assert fork["independently_authenticated_witnesses"]==0
+          assert fork["recovery_authorized"] is False and fork["lock_cleared"] is False
+          for name,report in (("230-two-signed-branches-preserved.json",fork),
+                              ("230-signed-head-cannot-resolve-fork.json",matched)):
+              Path("qualification-evidence",name).write_text(json.dumps(report,sort_keys=True,indent=2)+"\n")
+          print("SAPPHON_230_SIGNED_COMPETING_SESSIONS_PRESERVED__RECOVERY_HOLD")
+          PY
+      - name: Retain source-owned fork qualification records
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-230-session-fork-hold
+          path: qualification-evidence/230-*.json
+          retention-days: 30
+          if-no-files-found: error
