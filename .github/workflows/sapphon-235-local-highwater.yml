@@ -1,0 +1,53 @@
+name: SAPPHON-235 Local Persistent Nonce Highwater HOLD
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'tools/sapphon_235_local_highwater.py'
+      - 'tools/test_sapphon_235_local_highwater.py'
+      - '.github/workflows/sapphon-235-local-highwater.yml'
+      - 'docs/sapphon/phase-xx/235/**'
+permissions:
+  contents: read
+jobs:
+  persistent-highwater:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Run 15 persistent local nonce and conflict regressions
+        run: |
+          python3 -m py_compile tools/sapphon_235_local_highwater.py tools/test_sapphon_235_local_highwater.py
+          PYTHONPATH=tools python3 tools/test_sapphon_235_local_highwater.py
+      - name: Export conflicting local highwater report
+        run: |
+          mkdir -p qualification-evidence
+          PYTHONPATH=tools python3 - <<'PY'
+          import json
+          import tempfile
+          from pathlib import Path
+          from sapphon_235_local_highwater import append,read_rows,compare
+          with tempfile.TemporaryDirectory() as directory:
+              a=Path(directory)/"alpha.jsonl"
+              b=Path(directory)/"beta.jsonl"
+              append(a,"1"*64,"synthetic",0)
+              append(b,"1"*64,"synthetic",0)
+              append(a,"2"*64,"synthetic",1)
+              append(b,"3"*64,"synthetic",1)
+              report=compare(read_rows(a),read_rows(b))
+              assert report["state"]=="CONFLICTING_VALID_HISTORIES_HOLD"
+              assert report["recovery_authorized"] is False
+              assert report["independently_authenticated_witnesses"]==0
+              Path("qualification-evidence/235-conflicting-local-highwater-HOLD.json").write_text(json.dumps(report,indent=2,sort_keys=True)+"\n")
+              print("SAPPHON_235_RESTART_AND_FORK_LOCAL_JOURNAL__EXTERNAL_HIGHWATER_HOLD")
+          PY
+      - name: Archive source-owned journal qualification
+        uses: actions/upload-artifact@v4
+        with:
+          name: sapphon-235-local-highwater-hold
+          path: qualification-evidence/235-*.json
+          retention-days: 30
+          if-no-files-found: error
